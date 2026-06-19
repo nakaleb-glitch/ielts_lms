@@ -29,6 +29,7 @@ An online IELTS Reading test platform for schools. Teachers create and publish r
 supabase functions deploy score-session
 supabase functions deploy create-user
 supabase functions deploy reset-password
+supabase functions deploy update-user
 supabase functions deploy import-students-csv
 ```
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import type { AdminUserRow, UserRole } from '../../types/assessment'
+import type { AdminUserRow, SchoolClass, UserRole } from '../../types/assessment'
 
 interface CsvRow {
   student_id: string
@@ -71,6 +71,7 @@ export function UserManagement() {
   const [success, setSuccess] = useState('')
 
   const [showAddUser, setShowAddUser] = useState(false)
+  const [showEditUser, setShowEditUser] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [csvPreview, setCsvPreview] = useState<CsvRow[]>([])
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
@@ -78,6 +79,14 @@ export function UserManagement() {
   const [displayName, setDisplayName] = useState('')
   const [schoolId, setSchoolId] = useState('')
   const [role, setRole] = useState<UserRole>('student')
+
+  const [editingUser, setEditingUser] = useState<AdminUserRow | null>(null)
+  const [editDisplayName, setEditDisplayName] = useState('')
+  const [editSchoolId, setEditSchoolId] = useState('')
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
+  const [originalClassIds, setOriginalClassIds] = useState<Set<string>>(new Set())
+  const [allClasses, setAllClasses] = useState<SchoolClass[]>([])
+  const [saving, setSaving] = useState(false)
 
   const loadUsers = async () => {
     setLoading(true)
@@ -99,6 +108,123 @@ export function UserManagement() {
     setDisplayName('')
     setSchoolId('')
     setRole('student')
+  }
+
+  const resetEditForm = () => {
+    setEditingUser(null)
+    setEditDisplayName('')
+    setEditSchoolId('')
+    setSelectedClassIds([])
+    setOriginalClassIds(new Set())
+  }
+
+  const loadClasses = async () => {
+    const { data } = await supabase.rpc('list_classes')
+    setAllClasses(data || [])
+  }
+
+  const openEditUser = async (user: AdminUserRow) => {
+    setError('')
+    setSuccess('')
+    setEditingUser(user)
+    setEditDisplayName(user.display_name)
+    setEditSchoolId(user.role === 'student' ? (user.student_id || '') : (user.staff_id || ''))
+    setShowEditUser(true)
+
+    if (allClasses.length === 0) {
+      await loadClasses()
+    }
+
+    if (user.role === 'student') {
+      const { data: memberships } = await supabase
+        .from('class_members')
+        .select('class_id')
+        .eq('student_id', user.id)
+      const ids = (memberships || []).map((m) => m.class_id)
+      setSelectedClassIds(ids)
+      setOriginalClassIds(new Set(ids))
+    } else {
+      setSelectedClassIds([])
+      setOriginalClassIds(new Set())
+    }
+  }
+
+  const toggleEditClass = (classId: string) => {
+    setSelectedClassIds((prev) =>
+      prev.includes(classId) ? prev.filter((id) => id !== classId) : [...prev, classId],
+    )
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingUser) return
+
+    setError('')
+    setSuccess('')
+    setSaving(true)
+
+    const body = editingUser.role === 'student'
+      ? {
+          user_id: editingUser.id,
+          display_name: editDisplayName || editSchoolId,
+          student_id: editSchoolId,
+        }
+      : {
+          user_id: editingUser.id,
+          display_name: editDisplayName || editSchoolId,
+          staff_id: editSchoolId,
+        }
+
+    const { data, error: fnError } = await supabase.functions.invoke('update-user', { body })
+
+    if (fnError) {
+      setSaving(false)
+      setError(fnError.message)
+      return
+    }
+
+    if (data?.error) {
+      setSaving(false)
+      setError(data.error)
+      return
+    }
+
+    if (editingUser.role === 'student') {
+      const selectedSet = new Set(selectedClassIds)
+      const toRemove = [...originalClassIds].filter((id) => !selectedSet.has(id))
+      const toAdd = selectedClassIds.filter((id) => !originalClassIds.has(id))
+
+      for (const classId of toRemove) {
+        const { error: deleteError } = await supabase
+          .from('class_members')
+          .delete()
+          .eq('class_id', classId)
+          .eq('student_id', editingUser.id)
+        if (deleteError) {
+          setSaving(false)
+          setError(deleteError.message)
+          return
+        }
+      }
+
+      for (const classId of toAdd) {
+        const { error: insertError } = await supabase.from('class_members').insert({
+          class_id: classId,
+          student_id: editingUser.id,
+        })
+        if (insertError) {
+          setSaving(false)
+          setError(insertError.message)
+          return
+        }
+      }
+    }
+
+    setSaving(false)
+    setSuccess(`Updated ${editingUser.display_name}`)
+    setShowEditUser(false)
+    resetEditForm()
+    loadUsers()
   }
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -206,30 +332,28 @@ export function UserManagement() {
     <div>
       <h1 className="mb-6 text-2xl font-bold text-slate-900">User Management</h1>
 
-      <div className="mb-6 flex flex-wrap items-start gap-4">
-        <div>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
-            Import CSV
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            onChange={handleCsvFile}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={downloadCsvTemplate}
-            className="mt-1 block text-xs text-royal-blue hover:underline"
-          >
-            download template
-          </button>
-        </div>
+      <div className="mb-6 flex flex-wrap items-center gap-4">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+        >
+          Import
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={handleCsvFile}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={downloadCsvTemplate}
+          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50"
+        >
+          Download
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -239,7 +363,7 @@ export function UserManagement() {
           }}
           className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50"
         >
-          Add user
+          Add User
         </button>
       </div>
 
@@ -258,7 +382,7 @@ export function UserManagement() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Add user</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Add User</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -314,6 +438,98 @@ export function UserManagement() {
                   className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {creating ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditUser && editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Edit User</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditUser(false)
+                  resetEditForm()
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Role</label>
+                <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 capitalize text-slate-600">
+                  {editingUser.role}
+                </p>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  {editingUser.role === 'student' ? 'Student ID' : 'Staff ID'}
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2"
+                  value={editSchoolId}
+                  onChange={(e) => setEditSchoolId(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Name</label>
+                <input
+                  type="text"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2"
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                />
+              </div>
+              {editingUser.role === 'student' && (
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Class</label>
+                  {allClasses.length === 0 ? (
+                    <p className="text-sm text-slate-500">No classes available.</p>
+                  ) : (
+                    <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border border-slate-200 p-3">
+                      {allClasses.map((c) => (
+                        <label
+                          key={c.id}
+                          className="flex cursor-pointer items-center gap-2 text-sm text-slate-700"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedClassIds.includes(c.id)}
+                            onChange={() => toggleEditClass(c.id)}
+                          />
+                          {c.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditUser(false)
+                    resetEditForm()
+                  }}
+                  className="rounded-md px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </form>
@@ -425,14 +641,23 @@ export function UserManagement() {
                     {u.role === 'student' && u.classes ? u.classes : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => handleResetPassword(u)}
-                      disabled={resettingId === u.id}
-                      className="rounded-md bg-slate-100 px-3 py-1.5 text-xs hover:bg-slate-200 disabled:opacity-50"
-                    >
-                      {resettingId === u.id ? 'Resetting...' : 'Reset password'}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEditUser(u)}
+                        className="rounded-md bg-slate-100 px-3 py-1.5 text-xs hover:bg-slate-200"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleResetPassword(u)}
+                        disabled={resettingId === u.id}
+                        className="rounded-md bg-slate-100 px-3 py-1.5 text-xs hover:bg-slate-200 disabled:opacity-50"
+                      >
+                        {resettingId === u.id ? 'Resetting...' : 'Reset Password'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
