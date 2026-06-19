@@ -330,41 +330,42 @@ export function UserManagement() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">User Management</h1>
-
-      <div className="mb-6 flex flex-wrap items-center gap-4">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          Import
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          onChange={handleCsvFile}
-          className="hidden"
-        />
-        <button
-          type="button"
-          onClick={downloadCsvTemplate}
-          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50"
-        >
-          Download
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setShowAddUser(true)
-            setError('')
-            setSuccess('')
-          }}
-          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50"
-        >
-          Add User
-        </button>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-slate-900">User Management</h1>
+        <div className="flex flex-wrap items-center gap-4">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            Import CSV
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={handleCsvFile}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={downloadCsvTemplate}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50"
+          >
+            Download CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowAddUser(true)
+              setError('')
+              setSuccess('')
+            }}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50"
+          >
+            Add User
+          </button>
+        </div>
       </div>
 
       {error && (
