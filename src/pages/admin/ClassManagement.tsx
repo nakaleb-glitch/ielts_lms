@@ -26,7 +26,7 @@ export function ClassManagement() {
   const navigate = useNavigate()
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [students, setStudents] = useState<StudentRow[]>([])
-  const [members, setMembers] = useState<Set<string>>(new Set())
+  const [assignedStudentIds, setAssignedStudentIds] = useState<Set<string>>(new Set())
   const [newClassName, setNewClassName] = useState('')
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -41,6 +41,11 @@ export function ClassManagement() {
 
   const sortedClasses = useMemo(() => sortClassesNaturally(classes), [classes])
 
+  const unassignedStudents = useMemo(
+    () => students.filter((s) => !assignedStudentIds.has(s.id)),
+    [students, assignedStudentIds],
+  )
+
   const loadClasses = async () => {
     const { data } = await supabase.rpc('list_classes')
     setClasses(data || [])
@@ -51,9 +56,28 @@ export function ClassManagement() {
     setStudents(data || [])
   }
 
-  const loadMembers = async (classId: string) => {
-    const { data } = await supabase.rpc('list_class_members', { p_class_id: classId })
-    setMembers(new Set((data || []).map((m: StudentRow) => m.id)))
+  const openAddStudents = async (classItem: SchoolClass) => {
+    setError('')
+    setAddStudentsClass(classItem)
+
+    const { data } = await supabase.from('class_members').select('student_id')
+    setAssignedStudentIds(new Set((data || []).map((r) => r.student_id)))
+  }
+
+  const addStudent = async (studentId: string) => {
+    if (!addStudentsClass) return
+
+    const { error: insertError } = await supabase.from('class_members').insert({
+      class_id: addStudentsClass.id,
+      student_id: studentId,
+    })
+    if (insertError) {
+      setError(insertError.message)
+      return
+    }
+
+    setAssignedStudentIds((s) => new Set(s).add(studentId))
+    loadClasses()
   }
 
   useEffect(() => {
@@ -98,44 +122,6 @@ export function ClassManagement() {
     }
     if (addStudentsClass?.id === classItem.id) setAddStudentsClass(null)
     if (seeResultsClass?.id === classItem.id) setSeeResultsClass(null)
-    loadClasses()
-  }
-
-  const openAddStudents = async (classItem: SchoolClass) => {
-    setError('')
-    setAddStudentsClass(classItem)
-    await loadMembers(classItem.id)
-  }
-
-  const toggleMember = async (studentId: string) => {
-    if (!addStudentsClass) return
-
-    if (members.has(studentId)) {
-      const { error: deleteError } = await supabase
-        .from('class_members')
-        .delete()
-        .eq('class_id', addStudentsClass.id)
-        .eq('student_id', studentId)
-      if (deleteError) {
-        setError(deleteError.message)
-        return
-      }
-      setMembers((s) => {
-        const next = new Set(s)
-        next.delete(studentId)
-        return next
-      })
-    } else {
-      const { error: insertError } = await supabase.from('class_members').insert({
-        class_id: addStudentsClass.id,
-        student_id: studentId,
-      })
-      if (insertError) {
-        setError(insertError.message)
-        return
-      }
-      setMembers((s) => new Set(s).add(studentId))
-    }
     loadClasses()
   }
 
@@ -324,9 +310,11 @@ export function ClassManagement() {
             </div>
             {students.length === 0 ? (
               <p className="text-sm text-slate-600">No students found. Create student accounts first.</p>
+            ) : unassignedStudents.length === 0 ? (
+              <p className="text-sm text-slate-600">No unassigned students available.</p>
             ) : (
               <div className="max-h-96 space-y-2 overflow-y-auto">
-                {students.map((s) => (
+                {unassignedStudents.map((s) => (
                   <label
                     key={s.id}
                     className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3"
@@ -337,8 +325,8 @@ export function ClassManagement() {
                     </div>
                     <input
                       type="checkbox"
-                      checked={members.has(s.id)}
-                      onChange={() => toggleMember(s.id)}
+                      checked={false}
+                      onChange={() => addStudent(s.id)}
                     />
                   </label>
                 ))}
