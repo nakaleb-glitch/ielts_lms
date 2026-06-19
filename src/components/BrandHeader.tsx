@@ -25,7 +25,7 @@ export function CambridgeLogo({ compact = false }: { compact?: boolean }) {
     <img
       src="/logos/cambridge.png"
       alt="Cambridge Assessment International Education"
-      className={compact ? 'h-8 w-auto' : 'h-10 w-auto'}
+      className={compact ? 'h-10 w-auto max-w-[180px] object-contain' : 'h-12 w-auto max-w-[220px] object-contain'}
     />
   )
 }
