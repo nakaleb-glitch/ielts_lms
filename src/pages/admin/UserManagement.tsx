@@ -1,12 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import type { Profile, UserRole } from '../../types/assessment'
+import type { AdminUserRow, UserRole } from '../../types/assessment'
 
 interface CsvRow {
   student_id: string
   class: string
   name?: string
 }
+
+interface ImportResult {
+  created_students: number
+  created_classes: number
+  assigned: number
+  errors: string[]
+}
+
+const CSV_TEMPLATE = `student_id,class,name
+S2024001,Year 10A,Jane Doe
+S2024002,Year 10A,John Smith
+S2024003,Year 10B,Maria Garcia
+`
 
 function parseCsv(text: string): CsvRow[] {
   const lines = text.trim().split(/\r?\n/).filter(Boolean)
@@ -32,12 +45,6 @@ function parseCsv(text: string): CsvRow[] {
   })
 }
 
-const CSV_TEMPLATE = `student_id,class,name
-S2024001,Year 10A,Jane Doe
-S2024002,Year 10A,John Smith
-S2024003,Year 10B,Maria Garcia
-`
-
 function downloadCsvTemplate() {
   const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
@@ -48,15 +55,14 @@ function downloadCsvTemplate() {
   URL.revokeObjectURL(url)
 }
 
-interface ImportResult {
-  created_students: number
-  created_classes: number
-  assigned: number
-  errors: string[]
+function schoolIdForUser(user: AdminUserRow): string {
+  if (user.role === 'student') return user.student_id || '—'
+  return user.staff_id || '—'
 }
 
 export function UserManagement() {
-  const [users, setUsers] = useState<Profile[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [users, setUsers] = useState<AdminUserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -64,29 +70,36 @@ export function UserManagement() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const [displayName, setDisplayName] = useState('')
-  const [studentId, setStudentId] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [role, setRole] = useState<UserRole>('student')
-
+  const [showAddUser, setShowAddUser] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
   const [csvPreview, setCsvPreview] = useState<CsvRow[]>([])
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
 
+  const [displayName, setDisplayName] = useState('')
+  const [schoolId, setSchoolId] = useState('')
+  const [role, setRole] = useState<UserRole>('student')
+
   const loadUsers = async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .in('role', ['student', 'teacher'])
-      .order('display_name')
-    setUsers(data || [])
+    const { data, error: loadError } = await supabase.rpc('list_users_for_admin')
+    if (loadError) {
+      setError(loadError.message)
+      setUsers([])
+    } else {
+      setUsers(data || [])
+    }
     setLoading(false)
   }
 
   useEffect(() => {
     loadUsers()
   }, [])
+
+  const resetAddForm = () => {
+    setDisplayName('')
+    setSchoolId('')
+    setRole('student')
+  }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -95,8 +108,8 @@ export function UserManagement() {
     setCreating(true)
 
     const body = role === 'student'
-      ? { role, student_id: studentId, display_name: displayName || studentId }
-      : { role, email, display_name: displayName, password: password || undefined }
+      ? { role, student_id: schoolId, display_name: displayName || schoolId }
+      : { role, staff_id: schoolId, display_name: displayName || schoolId }
 
     const { data, error: fnError } = await supabase.functions.invoke('create-user', { body })
 
@@ -112,19 +125,15 @@ export function UserManagement() {
       return
     }
 
-    const label = role === 'student' ? studentId : email
-    setSuccess(`Created ${role} account for ${label}`)
-    setDisplayName('')
-    setStudentId('')
-    setEmail('')
-    setPassword('')
-    setRole('student')
+    setSuccess(`Created ${role} account for ${schoolId}`)
+    resetAddForm()
+    setShowAddUser(false)
     loadUsers()
   }
 
-  const handleResetPassword = async (user: Profile) => {
-    const label = user.student_id || user.email || user.display_name
-    if (!confirm(`Reset password for ${label} to the default? They will be required to change it on next login.`)) {
+  const handleResetPassword = async (user: AdminUserRow) => {
+    const label = schoolIdForUser(user)
+    if (!confirm(`Reset password for ${user.display_name} (${label}) to the default? They will be required to change it on next login.`)) {
       return
     }
 
@@ -148,7 +157,7 @@ export function UserManagement() {
       return
     }
 
-    setSuccess(`Password reset for ${label}`)
+    setSuccess(`Password reset for ${user.display_name}`)
   }
 
   const handleCsvFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,6 +166,7 @@ export function UserManagement() {
     const text = await file.text()
     setCsvPreview(parseCsv(text))
     setImportResult(null)
+    setShowImportModal(true)
     e.target.value = ''
   }
 
@@ -186,6 +196,7 @@ export function UserManagement() {
     setImportResult(data as ImportResult)
     setSuccess(`Import complete: ${data.created_students} students created, ${data.created_classes} classes created, ${data.assigned} assignments.`)
     setCsvPreview([])
+    setShowImportModal(false)
     loadUsers()
   }
 
@@ -193,110 +204,142 @@ export function UserManagement() {
 
   return (
     <div>
-      <h1 className="mb-2 text-2xl font-bold text-slate-900">User Management</h1>
-      <p className="mb-6 text-sm text-slate-600">
-        Create student and teacher accounts. Students sign in with their Student ID and default password{' '}
-        <code className="rounded bg-slate-100 px-1">royal@123</code>.
-      </p>
+      <h1 className="mb-6 text-2xl font-bold text-slate-900">User Management</h1>
 
-      <form onSubmit={handleCreate} className="mb-8 rounded-lg border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 font-semibold text-slate-900">Create account</h2>
-        <div className="mb-4">
-          <select
-            className="rounded-md border border-slate-300 px-3 py-2"
-            value={role}
-            onChange={(e) => setRole(e.target.value as UserRole)}
+      <div className="mb-6 flex flex-wrap items-start gap-4">
+        <div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
-            <option value="student">Student</option>
-            <option value="teacher">Teacher</option>
-          </select>
+            Import CSV
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={handleCsvFile}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={downloadCsvTemplate}
+            className="mt-1 block text-xs text-royal-blue hover:underline"
+          >
+            download template
+          </button>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {role === 'student' ? (
-            <>
-              <input
-                type="text"
-                placeholder="Student ID"
-                className="rounded-md border border-slate-300 px-3 py-2"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-                required
-              />
-              <input
-                type="text"
-                placeholder="Display name (optional)"
-                className="rounded-md border border-slate-300 px-3 py-2"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-            </>
-          ) : (
-            <>
-              <input
-                type="text"
-                placeholder="Display name"
-                className="rounded-md border border-slate-300 px-3 py-2"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                required
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                className="rounded-md border border-slate-300 px-3 py-2"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <input
-                type="password"
-                placeholder="Password (optional, min 6 characters)"
-                className="rounded-md border border-slate-300 px-3 py-2"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
-              />
-            </>
-          )}
-        </div>
-        {role === 'student' && (
-          <p className="mt-3 text-xs text-slate-500">
-            Default password is royal@123. Student must change it on first login.
-          </p>
-        )}
-        {error && <p className="mt-3 text-sm text-royal-red">{error}</p>}
-        {success && <p className="mt-3 text-sm text-green-600">{success}</p>}
-        <button
-          type="submit"
-          disabled={creating}
-          className="mt-4 rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {creating ? 'Creating...' : 'Create account'}
-        </button>
-      </form>
-
-      <div className="mb-8 rounded-lg border border-slate-200 bg-white p-6">
-        <h2 className="mb-2 font-semibold text-slate-900">Import students from CSV</h2>
-        <p className="mb-4 text-sm text-slate-600">
-          CSV columns: <code className="rounded bg-slate-100 px-1">student_id,class</code> or{' '}
-          <code className="rounded bg-slate-100 px-1">student_id,class,name</code>. Creates students and classes as needed.
-        </p>
         <button
           type="button"
-          onClick={downloadCsvTemplate}
-          className="mb-4 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50"
+          onClick={() => {
+            setShowAddUser(true)
+            setError('')
+            setSuccess('')
+          }}
+          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50"
         >
-          Download CSV template
+          Add user
         </button>
-        <input
-          type="file"
-          accept=".csv,text/csv"
-          onChange={handleCsvFile}
-          className="mb-4 block text-sm"
-        />
-        {csvPreview.length > 0 && (
-          <>
-            <p className="mb-2 text-sm text-slate-600">{csvPreview.length} rows ready to import</p>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-md border border-royal-red/30 bg-red-50 px-4 py-3 text-sm text-royal-red">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {success}
+        </div>
+      )}
+
+      {showAddUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Add user</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddUser(false)
+                  resetAddForm()
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <select
+                className="w-full rounded-md border border-slate-300 px-3 py-2"
+                value={role}
+                onChange={(e) => setRole(e.target.value as UserRole)}
+              >
+                <option value="student">Student</option>
+                <option value="teacher">Teacher</option>
+              </select>
+              <input
+                type="text"
+                placeholder={role === 'student' ? 'Student ID' : 'Staff ID'}
+                className="w-full rounded-md border border-slate-300 px-3 py-2"
+                value={schoolId}
+                onChange={(e) => setSchoolId(e.target.value)}
+                required
+              />
+              <input
+                type="text"
+                placeholder="Name (optional)"
+                className="w-full rounded-md border border-slate-300 px-3 py-2"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+              <p className="text-xs text-slate-500">
+                Default password is royal@123. User must change it on first login.
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddUser(false)
+                    resetAddForm()
+                  }}
+                  className="rounded-md px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {creating ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Import CSV</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImportModal(false)
+                  setCsvPreview([])
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="mb-4 text-sm text-slate-600">
+              {csvPreview.length} row{csvPreview.length === 1 ? '' : 's'} ready to import.
+            </p>
             <div className="mb-4 max-h-48 overflow-y-auto rounded border border-slate-200">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50">
@@ -320,55 +363,82 @@ export function UserManagement() {
                 <p className="px-3 py-2 text-xs text-slate-500">…and {csvPreview.length - 10} more</p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={handleImport}
-              disabled={importing}
-              className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-            >
-              {importing ? 'Importing...' : 'Import CSV'}
-            </button>
-          </>
-        )}
-        {importResult && importResult.errors.length > 0 && (
-          <div className="mt-4 rounded-md border border-royal-red/30 bg-red-50 px-4 py-3 text-sm text-royal-red">
-            <p className="font-medium">Import warnings:</p>
-            <ul className="mt-1 list-inside list-disc">
-              {importResult.errors.map((err, i) => (
-                <li key={i}>{err}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        {users.map((u) => (
-          <div
-            key={u.id}
-            className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3"
-          >
-            <div>
-              <p className="font-medium text-slate-900">{u.display_name}</p>
-              <p className="text-sm text-slate-500">
-                {u.role === 'student' ? `ID: ${u.student_id || '—'}` : u.email}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700">
-                {u.role}
-              </span>
+            {importResult && importResult.errors.length > 0 && (
+              <div className="mb-4 rounded-md border border-royal-red/30 bg-red-50 px-4 py-3 text-sm text-royal-red">
+                <p className="font-medium">Import warnings:</p>
+                <ul className="mt-1 list-inside list-disc">
+                  {importResult.errors.map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => handleResetPassword(u)}
-                disabled={resettingId === u.id}
-                className="rounded-md bg-slate-100 px-3 py-1.5 text-xs hover:bg-slate-200 disabled:opacity-50"
+                onClick={() => {
+                  setShowImportModal(false)
+                  setCsvPreview([])
+                }}
+                className="rounded-md px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
               >
-                {resettingId === u.id ? 'Resetting...' : 'Reset password'}
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleImport}
+                disabled={importing}
+                className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {importing ? 'Importing...' : 'Import'}
               </button>
             </div>
           </div>
-        ))}
+        </div>
+      )}
+
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead className="border-b border-slate-200 bg-slate-50">
+            <tr>
+              <th className="px-4 py-3 font-semibold text-slate-700">Name</th>
+              <th className="px-4 py-3 font-semibold text-slate-700">Student/Staff ID</th>
+              <th className="px-4 py-3 font-semibold text-slate-700">Role</th>
+              <th className="px-4 py-3 font-semibold text-slate-700">Class</th>
+              <th className="px-4 py-3 font-semibold text-slate-700">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                  No users yet. Import a CSV or add a user to get started.
+                </td>
+              </tr>
+            ) : (
+              users.map((u) => (
+                <tr key={u.id} className="border-b border-slate-100 last:border-0">
+                  <td className="px-4 py-3 font-medium text-slate-900">{u.display_name}</td>
+                  <td className="px-4 py-3 text-slate-600">{schoolIdForUser(u)}</td>
+                  <td className="px-4 py-3 capitalize text-slate-600">{u.role}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {u.role === 'student' && u.classes ? u.classes : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => handleResetPassword(u)}
+                      disabled={resettingId === u.id}
+                      className="rounded-md bg-slate-100 px-3 py-1.5 text-xs hover:bg-slate-200 disabled:opacity-50"
+                    >
+                      {resettingId === u.id ? 'Resetting...' : 'Reset password'}
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   )

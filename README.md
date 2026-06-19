@@ -76,16 +76,14 @@ Connect the repo to Vercel and set the same environment variables. SPA routing i
 
 **Public sign-up is disabled.** Admins create student and teacher accounts at `/admin/users` and organize students into classes at `/admin/classes`.
 
-**Student login:** Students sign in with their **Student ID** (not email). Default password is `royal@123`; students must change it on first login.
+**School login:** Everyone signs in with their **Student ID** or **Staff ID** (not email). Default password is `royal@123`; users must change it on first login.
 
-**CSV import:** At `/admin/users`, upload a CSV with columns `student_id,class` (optional `name`). Creates students, classes, and class memberships as needed.
+**CSV import:** At `/admin/users`, use **Import CSV** (download template link below the button). Columns: `student_id,class` (optional `name`). Creates students, classes, and class memberships as needed.
 
-**Teachers/admins** sign in with their email address.
+**Default admin** (migrated by `20260619190000_staff_id_auth.sql`):
 
-**Default admin** (created by migration `20260619130100_seed_default_admin.sql`):
-
-- Email: `na.kaleb@royal.edu.vn`
-- Password: set in that migration — change it in Supabase → Authentication → Users after first login
+- Staff ID: `KNA0200793`
+- Password: `royal@123` (from seed migration — change after first login)
 
 ## Project structure
 

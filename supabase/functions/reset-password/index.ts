@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { user_id, student_id } = await req.json()
+    const { user_id, student_id, staff_id } = await req.json()
     let targetUserId = user_id
 
     if (!targetUserId && student_id) {
@@ -63,8 +63,17 @@ Deno.serve(async (req) => {
       targetUserId = profile?.id
     }
 
+    if (!targetUserId && staff_id) {
+      const { data: profile } = await adminClient
+        .from('profiles')
+        .select('id')
+        .eq('staff_id', staff_id.trim())
+        .single()
+      targetUserId = profile?.id
+    }
+
     if (!targetUserId) {
-      return new Response(JSON.stringify({ error: 'user_id or student_id is required' }), {
+      return new Response(JSON.stringify({ error: 'user_id, student_id, or staff_id is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

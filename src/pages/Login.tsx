@@ -34,13 +34,13 @@ export function Login() {
       <div className="w-full max-w-md rounded-xl border-t-4 border-royal-blue bg-white p-8 shadow-sm">
         <h1 className="mb-2 text-xl font-bold text-slate-900">IELTS Assessment Hub</h1>
         <p className="mb-6 text-sm text-slate-600">
-          Students: sign in with your Student ID. Teachers and admins: sign in with your email.
+          Sign in with your Student ID or Staff ID and password.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
-            placeholder="Student ID or email"
+            placeholder="Student ID or Staff ID"
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}

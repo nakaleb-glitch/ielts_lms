@@ -19,6 +19,7 @@ export interface Profile {
   display_name: string
   email: string | null
   student_id: string | null
+  staff_id: string | null
   must_change_password: boolean
   created_at: string
 }
@@ -74,6 +75,15 @@ export interface TestAssignment {
   class_id: string | null
   due_at: string | null
   created_at: string
+}
+
+export interface AdminUserRow {
+  id: string
+  display_name: string
+  student_id: string | null
+  staff_id: string | null
+  role: UserRole
+  classes: string
 }
 
 export interface SchoolClass {

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
-import { toAuthIdentifier } from '../lib/studentAuth'
+import { isEmailLogin } from '../lib/schoolAuth'
 import type { Profile } from '../types/assessment'
 
 interface AuthContextValue {
@@ -56,10 +56,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signIn = async (identifier: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: toAuthIdentifier(identifier),
-      password,
-    })
+    let email = identifier.trim()
+
+    if (!isEmailLogin(email)) {
+      const { data, error: resolveError } = await supabase.rpc('resolve_login_email', {
+        p_identifier: identifier,
+      })
+      if (resolveError) {
+        return { error: new Error(resolveError.message) }
+      }
+      email = data as string
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     return { error: error ? new Error(error.message) : null }
   }
 

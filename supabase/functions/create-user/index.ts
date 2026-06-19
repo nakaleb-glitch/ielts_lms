@@ -1,7 +1,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { DEFAULT_STUDENT_PASSWORD } from '../_shared/studentAuth.ts'
 import { createStudentAccount } from '../_shared/createStudent.ts'
+import { createStaffAccount } from '../_shared/createStaff.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -78,42 +78,16 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { email, display_name, password } = body
-    if (!email || !display_name) {
-      return new Response(JSON.stringify({ error: 'email and display_name are required for teachers' }), {
+    const { staff_id, display_name } = body
+    if (!staff_id) {
+      return new Response(JSON.stringify({ error: 'staff_id is required for teachers' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const teacherPassword = password || DEFAULT_STUDENT_PASSWORD
-    if (teacherPassword.length < 6) {
-      return new Response(JSON.stringify({ error: 'Password must be at least 6 characters' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-      email,
-      password: teacherPassword,
-      email_confirm: true,
-      user_metadata: {
-        display_name,
-        role: 'teacher',
-        created_by_admin: true,
-        must_change_password: false,
-      },
-    })
-
-    if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    return new Response(JSON.stringify({ user: { id: newUser.user?.id, email: newUser.user?.email } }), {
+    const created = await createStaffAccount(adminClient, staff_id, 'teacher', display_name)
+    return new Response(JSON.stringify({ user: created }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

@@ -6,10 +6,6 @@ export function normalizeSchoolId(id: string): string {
   return id.trim()
 }
 
-export function normalizeStudentId(studentId: string): string {
-  return normalizeSchoolId(studentId)
-}
-
 export function studentIdToAuthEmail(studentId: string): string {
   return `${normalizeSchoolId(studentId).toLowerCase()}@${STUDENT_EMAIL_DOMAIN}`
 }
@@ -17,3 +13,10 @@ export function studentIdToAuthEmail(studentId: string): string {
 export function staffIdToAuthEmail(staffId: string): string {
   return `${normalizeSchoolId(staffId).toLowerCase()}@${STAFF_EMAIL_DOMAIN}`
 }
+
+export function isEmailLogin(identifier: string): boolean {
+  return identifier.includes('@')
+}
+
+/** @deprecated Use normalizeSchoolId */
+export const normalizeStudentId = normalizeSchoolId
