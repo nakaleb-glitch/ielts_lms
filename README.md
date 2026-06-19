@@ -1,11 +1,12 @@
-# IELTS LMS
+# IELTS Assessment Hub
 
 An online IELTS Reading test platform for schools. Teachers create and publish reading tests; students take them in an Inspera-style player with timer, question navigation, flagging, and autosave.
 
 ## Features
 
 - **Test authoring** — Create passages and questions (MCQ, T/F/NG, Y/N/NG, gap fill, matching)
-- **Publish & assign** — Assign published tests to student accounts
+- **Publish & assign** — Assign published tests to individual students or whole classes
+- **Admin roster** — Admins create student/teacher accounts and organize students into classes
 - **Exam player** — Split-pane passage + question view, question tabs, countdown timer, flag for review
 - **Auto-marking** — Scores submitted tests and estimates IELTS Reading band
 - **Results** — Students and teachers view scores and question breakdown
@@ -22,13 +23,15 @@ An online IELTS Reading test platform for schools. Teachers create and publish r
 
 1. Create a project at [supabase.com](https://supabase.com)
 2. Run migrations from `supabase/migrations/` in order (SQL Editor or `supabase db push`)
-3. Deploy the edge function:
+3. Deploy edge functions:
 
 ```bash
 supabase functions deploy score-session
+supabase functions deploy create-user
 ```
 
 4. Enable Email auth in Authentication → Providers
+5. Disable **Enable sign ups** in Authentication → Settings (accounts are admin-provisioned only)
 
 ### 2. Environment variables
 
@@ -48,7 +51,7 @@ npm run dev
 
 ### 4. Seed demo data (optional)
 
-After creating at least one teacher and one student account via sign-up:
+After creating teacher and student accounts via **Admin → Users**:
 
 - Run `supabase/migrations/20260619120100_seed_demo.sql` in the SQL Editor
 - Or create a test manually in the UI
@@ -65,11 +68,11 @@ Connect the repo to Vercel and set the same environment variables. SPA routing i
 
 | Role | Access |
 |------|--------|
-| Admin | Full access to test management |
-| Teacher | Create tests, assign students, view results |
+| Admin | User/class management, full test management |
+| Teacher | Create tests, assign students/classes, view results |
 | Student | My Tests, exam player, own results |
 
-**Sign up** at `/login` is limited to **Teacher** or **Student** only. Admin accounts cannot be created via public sign-up.
+**Public sign-up is disabled.** Admins create student and teacher accounts at `/admin/users` and organize students into classes at `/admin/classes`.
 
 **Default admin** (created by migration `20260619130100_seed_default_admin.sql`):
 
@@ -81,13 +84,14 @@ Connect the repo to Vercel and set the same environment variables. SPA routing i
 ```
 src/
   pages/teacher/     Test list, builder, assign, results
+  pages/admin/       User and class management
   pages/student/     My tests, results
   pages/player/      Inspera-style reading player
   components/        Auth, layout, question inputs
   lib/               Supabase client, scoring logic
 supabase/
   migrations/        Database schema + RLS
-  functions/         score-session edge function
+  functions/         score-session, create-user edge functions
 ```
 
 ## Question answer keys (JSON format)

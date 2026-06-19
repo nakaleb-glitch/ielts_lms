@@ -13,6 +13,7 @@ export function Layout() {
   }
 
   const isStudent = profile?.role === 'student'
+  const isAdmin = profile?.role === 'admin'
 
   return (
     <div className="min-h-screen bg-royal-grey">
@@ -26,6 +27,16 @@ export function Layout() {
               label={isStudent ? 'My Tests' : 'Tests'}
               basePath={isStudent ? '/my-tests' : '/tests'}
             />
+            {isAdmin && (
+              <>
+                <Link to="/admin/users" className="text-slate-700 hover:text-royal-blue">
+                  Users
+                </Link>
+                <Link to="/admin/classes" className="text-slate-700 hover:text-royal-blue">
+                  Classes
+                </Link>
+              </>
+            )}
             <span className="text-slate-500">{profile?.display_name}</span>
             <button
               type="button"

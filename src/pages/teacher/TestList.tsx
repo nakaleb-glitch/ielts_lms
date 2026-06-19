@@ -101,9 +101,17 @@ export function TestList({ module }: TestListProps) {
     navigate(`/tests/${data.id}/edit`)
   }
 
-  const deleteTest = async (id: string) => {
-    if (!confirm('Delete this draft test?')) return
-    await supabase.from('tests').delete().eq('id', id)
+  const deleteTest = async (id: string, status: string) => {
+    const message = status === 'published'
+      ? 'This will permanently delete the test and remove all student assignments and results. Continue?'
+      : 'Delete this draft test?'
+    if (!confirm(message)) return
+
+    const { error: deleteError } = await supabase.from('tests').delete().eq('id', id)
+    if (deleteError) {
+      setError(deleteError.message)
+      return
+    }
     loadTests()
   }
 
@@ -193,15 +201,13 @@ export function TestList({ module }: TestListProps) {
                     </Link>
                   </>
                 )}
-                {test.status === 'draft' && (
-                  <button
-                    type="button"
-                    onClick={() => deleteTest(test.id)}
-                    className="rounded-md bg-red-50 px-3 py-1.5 text-sm text-royal-red hover:bg-red-100"
-                  >
-                    Delete
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => deleteTest(test.id, test.status)}
+                  className="rounded-md bg-red-50 px-3 py-1.5 text-sm text-royal-red hover:bg-red-100"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           ))}

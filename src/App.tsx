@@ -8,6 +8,8 @@ import { ModuleTestList } from './pages/teacher/ModuleTestList'
 import { TestBuilder } from './pages/teacher/TestBuilder'
 import { AssignTest } from './pages/teacher/AssignTest'
 import { TeacherResults } from './pages/teacher/TeacherResults'
+import { UserManagement } from './pages/admin/UserManagement'
+import { ClassManagement } from './pages/admin/ClassManagement'
 import { MyTests } from './pages/student/MyTests'
 import { ComingSoon } from './pages/student/ComingSoon'
 import { StudentResults } from './pages/student/Results'
@@ -31,6 +33,13 @@ export default function App() {
                 <Route path="/tests/:testId/edit" element={<TestBuilder />} />
                 <Route path="/tests/:testId/assign" element={<AssignTest />} />
                 <Route path="/tests/:testId/results" element={<TeacherResults />} />
+              </Route>
+            </Route>
+
+            <Route element={<ProtectedRoute roles={['admin']} />}>
+              <Route element={<Layout />}>
+                <Route path="/admin/users" element={<UserManagement />} />
+                <Route path="/admin/classes" element={<ClassManagement />} />
               </Route>
             </Route>
 

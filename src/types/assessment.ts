@@ -69,6 +69,29 @@ export interface TestAssignment {
   test_id: string
   student_id: string
   assigned_by: string
+  class_id: string | null
+  due_at: string | null
+  created_at: string
+}
+
+export interface SchoolClass {
+  id: string
+  name: string
+  created_by: string
+  created_at: string
+  member_count?: number
+}
+
+export interface ClassMember {
+  class_id: string
+  student_id: string
+  added_at: string
+}
+
+export interface ClassTestAssignment {
+  test_id: string
+  class_id: string
+  assigned_by: string
   due_at: string | null
   created_at: string
 }

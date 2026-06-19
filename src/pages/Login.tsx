@@ -3,16 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { RoyalLogo } from '../components/BrandHeader'
 
-type SignUpRole = 'teacher' | 'student'
-
 export function Login() {
-  const { signIn, signUp } = useAuth()
+  const { signIn } = useAuth()
   const navigate = useNavigate()
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [displayName, setDisplayName] = useState('')
-  const [role, setRole] = useState<SignUpRole>('teacher')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -21,9 +16,7 @@ export function Login() {
     setError('')
     setLoading(true)
 
-    const result = mode === 'login'
-      ? await signIn(email, password)
-      : await signUp(email, password, displayName, role)
+    const result = await signIn(email, password)
 
     setLoading(false)
     if (result.error) {
@@ -39,47 +32,12 @@ export function Login() {
         <RoyalLogo showSubtitle />
       </div>
       <div className="w-full max-w-md rounded-xl border-t-4 border-royal-blue bg-white p-8 shadow-sm">
-        <h1 className="mb-2 text-xl font-bold text-slate-900">IELTS LMS</h1>
-        <p className="mb-6 text-sm text-slate-600">Sign in to create or take reading tests.</p>
-
-        <div className="mb-4 flex gap-2">
-          <button
-            type="button"
-            className={`flex-1 rounded-md py-2 text-sm ${mode === 'login' ? 'bg-royal-blue text-white' : 'bg-slate-100'}`}
-            onClick={() => setMode('login')}
-          >
-            Sign in
-          </button>
-          <button
-            type="button"
-            className={`flex-1 rounded-md py-2 text-sm ${mode === 'signup' ? 'bg-royal-blue text-white' : 'bg-slate-100'}`}
-            onClick={() => setMode('signup')}
-          >
-            Sign up
-          </button>
-        </div>
+        <h1 className="mb-2 text-xl font-bold text-slate-900">IELTS Assessment Hub</h1>
+        <p className="mb-6 text-sm text-slate-600">
+          Sign in with your school account. Contact an administrator if you need access.
+        </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === 'signup' && (
-            <>
-              <input
-                type="text"
-                placeholder="Display name"
-                className="w-full rounded-md border border-slate-300 px-3 py-2"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                required
-              />
-              <select
-                className="w-full rounded-md border border-slate-300 px-3 py-2"
-                value={role}
-                onChange={(e) => setRole(e.target.value as SignUpRole)}
-              >
-                <option value="teacher">Teacher</option>
-                <option value="student">Student</option>
-              </select>
-            </>
-          )}
           <input
             type="email"
             placeholder="Email"
@@ -103,7 +61,7 @@ export function Login() {
             disabled={loading}
             className="w-full rounded-md bg-royal-blue py-2 font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
-            {loading ? 'Please wait...' : mode === 'login' ? 'Sign in' : 'Create account'}
+            {loading ? 'Please wait...' : 'Sign in'}
           </button>
         </form>
       </div>
