@@ -20,6 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const fetchProfile = async (userId: string) => {
+    setLoading(true)
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -68,8 +69,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email = data as string
     }
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error: error ? new Error(error.message) : null }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      return { error: new Error(error.message) }
+    }
+
+    const sessionUser = data.session?.user
+    if (sessionUser) {
+      setUser({ id: sessionUser.id, email: sessionUser.email })
+      await fetchProfile(sessionUser.id)
+    }
+
+    return { error: null }
   }
 
   const signOut = async () => {
