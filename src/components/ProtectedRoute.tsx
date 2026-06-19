@@ -18,7 +18,7 @@ export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
   }
 
   if (roles && !roles.includes(profile.role)) {
-    const home = profile.role === 'student' ? '/my-tests' : '/tests'
+    const home = profile.role === 'student' ? '/my-tests/reading' : '/tests/reading'
     return <Navigate to={home} replace />
   }
 
@@ -30,6 +30,6 @@ export function RoleRedirect() {
 
   if (loading) return null
   if (!profile) return <Navigate to="/login" replace />
-  if (profile.role === 'student') return <Navigate to="/my-tests" replace />
-  return <Navigate to="/tests" replace />
+  if (profile.role === 'student') return <Navigate to="/my-tests/reading" replace />
+  return <Navigate to="/tests/reading" replace />
 }

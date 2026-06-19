@@ -2,25 +2,49 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import type { Test } from '../../types/assessment'
+import type { Test, TestModule } from '../../types/assessment'
 
-export function TestList() {
+const MODULE_LABELS: Record<TestModule, string> = {
+  reading: 'Reading',
+  writing: 'Writing',
+  listening: 'Listening',
+}
+
+const DEFAULT_TITLES: Record<TestModule, string> = {
+  reading: 'Untitled Reading Test',
+  writing: 'Untitled Writing Test',
+  listening: 'Untitled Listening Test',
+}
+
+const DEFAULT_INSTRUCTIONS: Record<TestModule, string> = {
+  reading: 'Read each passage carefully and answer all questions.',
+  writing: 'Complete all writing tasks within the time limit.',
+  listening: 'Listen carefully and answer all questions.',
+}
+
+interface TestListProps {
+  module: TestModule
+}
+
+export function TestList({ module }: TestListProps) {
   const { profile, user } = useAuth()
   const navigate = useNavigate()
   const [tests, setTests] = useState<Test[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
+  const label = MODULE_LABELS[module]
 
   useEffect(() => {
     loadTests()
-  }, [profile?.id])
+  }, [profile?.id, module])
 
   const loadTests = async () => {
     setLoading(true)
     const { data } = await supabase
       .from('tests')
       .select('*')
+      .eq('module', module)
       .order('updated_at', { ascending: false })
     setTests(data || [])
     setLoading(false)
@@ -39,9 +63,10 @@ export function TestList() {
     const { data, error: testError } = await supabase
       .from('tests')
       .insert({
-        title: 'Untitled Reading Test',
-        instructions: 'Read each passage carefully and answer all questions.',
-        duration_minutes: 60,
+        title: DEFAULT_TITLES[module],
+        instructions: DEFAULT_INSTRUCTIONS[module],
+        duration_minutes: module === 'reading' ? 60 : module === 'writing' ? 60 : 30,
+        module,
         created_by: userId,
       })
       .select()
@@ -53,18 +78,22 @@ export function TestList() {
       return
     }
 
-    const { error: passageError } = await supabase.from('passages').insert({
-      test_id: data.id,
-      order_index: 1,
-      title: 'Passage 1',
-      body: '',
-    })
+    if (module === 'reading') {
+      const { error: passageError } = await supabase.from('passages').insert({
+        test_id: data.id,
+        order_index: 1,
+        title: 'Passage 1',
+        body: '',
+      })
 
-    setCreating(false)
+      setCreating(false)
 
-    if (passageError) {
-      setError(passageError.message)
-      return
+      if (passageError) {
+        setError(passageError.message)
+        return
+      }
+    } else {
+      setCreating(false)
     }
 
     navigate(`/tests/${data.id}/edit`)
@@ -87,7 +116,7 @@ export function TestList() {
       )}
 
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Reading Tests</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{label} Tests</h1>
         <button
           type="button"
           onClick={createTest}
@@ -105,12 +134,17 @@ export function TestList() {
           disabled={creating}
           className="w-full rounded-lg border border-dashed border-royal-blue/40 bg-white p-8 text-center text-slate-600 hover:border-royal-blue hover:bg-blue-50/30 disabled:opacity-50"
         >
-          {creating ? 'Creating test...' : 'No tests yet. Click here to create your first IELTS Reading test.'}
+          {creating
+            ? 'Creating test...'
+            : `No tests yet. Click here to create your first IELTS ${label} test.`}
         </button>
       ) : (
         <div className="space-y-3">
           {tests.map((test) => (
-            <div key={test.id} className="flex items-center justify-between rounded-lg border border-slate-200 border-t-4 border-t-royal-blue bg-white p-4">
+            <div
+              key={test.id}
+              className="flex items-center justify-between rounded-lg border border-slate-200 border-t-4 border-t-royal-blue bg-white p-4"
+            >
               <div>
                 <h2 className="font-semibold text-slate-900">{test.title}</h2>
                 <p className="text-sm text-slate-500">

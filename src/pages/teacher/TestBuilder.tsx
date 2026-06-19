@@ -151,10 +151,75 @@ export function TestBuilder() {
 
   if (!test) return <p>Loading...</p>
 
+  const listPath = `/tests/${test.module || 'reading'}`
+
+  if (test.module && test.module !== 'reading') {
+    return (
+      <div>
+        <div className="mb-4 flex items-center justify-between">
+          <Link to={listPath} className="text-sm text-royal-blue hover:underline">
+            ← Back to {test.module} tests
+          </Link>
+          <div className="flex gap-2">
+            {test.status === 'draft' && (
+              <button
+                type="button"
+                onClick={publish}
+                className="rounded-md bg-royal-red px-4 py-2 text-sm text-white hover:opacity-90"
+              >
+                Publish
+              </button>
+            )}
+            {test.status === 'published' && (
+              <Link
+                to={`/tests/${testId}/assign`}
+                className="rounded-md bg-royal-blue px-4 py-2 text-sm text-white hover:opacity-90"
+              >
+                Assign students
+              </Link>
+            )}
+          </div>
+        </div>
+
+        <div className="mb-4 rounded-lg border border-royal-yellow/50 bg-yellow-50 px-4 py-3 text-sm text-slate-700">
+          Full {test.module} test builder coming soon. You can edit basic test settings below.
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <input
+            className="mb-2 w-full text-xl font-bold outline-none"
+            value={test.title}
+            onChange={(e) => setTest({ ...test, title: e.target.value })}
+            onBlur={() => saveTestMeta({ title: test.title })}
+          />
+          <textarea
+            className="mb-2 w-full rounded-md border border-slate-200 p-2 text-sm"
+            rows={2}
+            placeholder="Instructions"
+            value={test.instructions || ''}
+            onChange={(e) => setTest({ ...test, instructions: e.target.value })}
+            onBlur={() => saveTestMeta({ instructions: test.instructions })}
+          />
+          <label className="flex items-center gap-2 text-sm">
+            Duration (min)
+            <input
+              type="number"
+              className="w-20 rounded-md border border-slate-200 px-2 py-1"
+              value={test.duration_minutes}
+              onChange={(e) => setTest({ ...test, duration_minutes: Number(e.target.value) })}
+              onBlur={() => saveTestMeta({ duration_minutes: test.duration_minutes })}
+            />
+          </label>
+          <p className="mt-2 text-xs text-slate-500">{saving ? 'Saving...' : `Status: ${test.status}`}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <Link to="/tests" className="text-sm text-royal-blue hover:underline">← Back to tests</Link>
+        <Link to={listPath} className="text-sm text-royal-blue hover:underline">← Back to tests</Link>
         <div className="flex gap-2">
           {test.status === 'draft' && (
             <button

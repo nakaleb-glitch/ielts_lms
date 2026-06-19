@@ -63,7 +63,7 @@ export function TeacherResults() {
 
   return (
     <div>
-      <Link to="/tests" className="text-sm text-royal-blue hover:underline">← Back to tests</Link>
+      <Link to="/tests/reading" className="text-sm text-royal-blue hover:underline">← Back to tests</Link>
       <h1 className="mb-6 mt-4 text-2xl font-bold">Results: {testTitle}</h1>
 
       {rows.length === 0 ? (

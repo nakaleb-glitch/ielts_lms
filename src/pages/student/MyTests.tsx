@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import type { Test, TestAssignment, TestSession } from '../../types/assessment'
@@ -11,6 +11,7 @@ interface AssignmentRow extends TestAssignment {
 
 export function MyTests() {
   const { profile } = useAuth()
+  const navigate = useNavigate()
   const [assignments, setAssignments] = useState<AssignmentRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -30,22 +31,25 @@ export function MyTests() {
       .eq('student_id', profile!.id)
       .order('created_at', { ascending: false })
 
-    const mapped = (data || []).map((a) => ({
-      ...a,
-      session: Array.isArray(a.session) ? a.session[0] : a.session,
-    }))
+    const mapped = (data || [])
+      .map((a) => ({
+        ...a,
+        session: Array.isArray(a.session) ? a.session[0] : a.session,
+      }))
+      .filter((a) => (a.test as Test)?.module === 'reading' || !(a.test as Test)?.module)
+
     setAssignments(mapped)
     setLoading(false)
   }
 
   const startTest = async (assignment: AssignmentRow) => {
     if (assignment.session?.status === 'submitted') {
-      window.location.href = `/results/${assignment.session.id}`
+      navigate(`/results/${assignment.session.id}`)
       return
     }
 
     if (assignment.session?.id) {
-      window.location.href = `/player/${assignment.session.id}`
+      navigate(`/player/${assignment.session.id}`)
       return
     }
 
@@ -56,7 +60,7 @@ export function MyTests() {
       .single()
 
     if (!error && session) {
-      window.location.href = `/player/${session.id}`
+      navigate(`/player/${session.id}`)
     }
   }
 
@@ -71,16 +75,16 @@ export function MyTests() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">My Tests</h1>
+      <h1 className="mb-6 text-2xl font-bold text-slate-900">My Reading Tests</h1>
 
       {assignments.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-slate-600">
-          No tests assigned yet. Your teacher will assign reading tests here.
+          No reading tests assigned yet. Your teacher will assign tests here.
         </div>
       ) : (
         <div className="space-y-3">
           {assignments.map((a) => (
-            <div key={a.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4">
+            <div key={a.id} className="flex items-center justify-between rounded-lg border border-slate-200 border-t-4 border-t-royal-blue bg-white p-4">
               <div>
                 <h2 className="font-semibold text-slate-900">{a.test.title}</h2>
                 <p className="text-sm text-slate-500">

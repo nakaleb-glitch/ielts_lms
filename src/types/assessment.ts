@@ -1,3 +1,5 @@
+export type TestModule = 'reading' | 'writing' | 'listening'
+
 export type UserRole = 'admin' | 'teacher' | 'student'
 
 export type TestStatus = 'draft' | 'published'
@@ -25,6 +27,7 @@ export interface Test {
   instructions: string | null
   duration_minutes: number
   status: TestStatus
+  module: TestModule
   created_by: string
   created_at: string
   updated_at: string

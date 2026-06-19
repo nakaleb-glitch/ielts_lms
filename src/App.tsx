@@ -4,11 +4,12 @@ import { AuthProvider } from './contexts/AuthContext'
 import { Layout } from './components/Layout'
 import { ProtectedRoute, RoleRedirect } from './components/ProtectedRoute'
 import { Login } from './pages/Login'
-import { TestList } from './pages/teacher/TestList'
+import { ModuleTestList } from './pages/teacher/ModuleTestList'
 import { TestBuilder } from './pages/teacher/TestBuilder'
 import { AssignTest } from './pages/teacher/AssignTest'
 import { TeacherResults } from './pages/teacher/TeacherResults'
 import { MyTests } from './pages/student/MyTests'
+import { ComingSoon } from './pages/student/ComingSoon'
 import { StudentResults } from './pages/student/Results'
 import { ReadingPlayer } from './pages/player/ReadingPlayer'
 
@@ -25,7 +26,8 @@ export default function App() {
 
             <Route element={<ProtectedRoute roles={['admin', 'teacher']} />}>
               <Route element={<Layout />}>
-                <Route path="/tests" element={<TestList />} />
+                <Route path="/tests" element={<Navigate to="/tests/reading" replace />} />
+                <Route path="/tests/:module" element={<ModuleTestList />} />
                 <Route path="/tests/:testId/edit" element={<TestBuilder />} />
                 <Route path="/tests/:testId/assign" element={<AssignTest />} />
                 <Route path="/tests/:testId/results" element={<TeacherResults />} />
@@ -34,7 +36,10 @@ export default function App() {
 
             <Route element={<ProtectedRoute roles={['student']} />}>
               <Route element={<Layout />}>
-                <Route path="/my-tests" element={<MyTests />} />
+                <Route path="/my-tests" element={<Navigate to="/my-tests/reading" replace />} />
+                <Route path="/my-tests/reading" element={<MyTests />} />
+                <Route path="/my-tests/writing" element={<ComingSoon />} />
+                <Route path="/my-tests/listening" element={<ComingSoon />} />
                 <Route path="/results/:sessionId" element={<StudentResults />} />
               </Route>
               <Route path="/player/:sessionId" element={<ReadingPlayer />} />
