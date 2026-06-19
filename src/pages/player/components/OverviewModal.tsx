@@ -53,7 +53,7 @@ export function OverviewModal({
             type="button"
             onClick={onSubmit}
             disabled={submitting}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             {submitting ? 'Submitting...' : 'Submit test'}
           </button>

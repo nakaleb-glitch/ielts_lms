@@ -46,7 +46,7 @@ export function StudentResults() {
 
   return (
     <div>
-      <Link to="/my-tests" className="text-sm text-blue-600 hover:underline">← Back to My Tests</Link>
+      <Link to="/my-tests" className="text-sm text-royal-blue hover:underline">← Back to My Tests</Link>
       <h1 className="mb-2 mt-4 text-2xl font-bold">{testTitle}</h1>
       <p className="mb-6 text-slate-600">Your Reading test has been submitted and scored.</p>
 
@@ -59,7 +59,7 @@ export function StudentResults() {
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-center">
           <p className="text-sm text-slate-500">IELTS band (approx.)</p>
-          <p className="text-3xl font-bold text-blue-600">{result.band_score}</p>
+          <p className="text-3xl font-bold text-royal-blue">{result.band_score}</p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-center">
           <p className="text-sm text-slate-500">Questions</p>

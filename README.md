@@ -69,7 +69,12 @@ Connect the repo to Vercel and set the same environment variables. SPA routing i
 | Teacher | Create tests, assign students, view results |
 | Student | My Tests, exam player, own results |
 
-Sign up at `/login` and choose a role. For production, restrict admin/teacher sign-up or create accounts via Supabase dashboard.
+**Sign up** at `/login` is limited to **Teacher** or **Student** only. Admin accounts cannot be created via public sign-up.
+
+**Default admin** (created by migration `20260619130100_seed_default_admin.sql`):
+
+- Email: `na.kaleb@royal.edu.vn`
+- Password: set in that migration — change it in Supabase → Authentication → Users after first login
 
 ## Project structure
 

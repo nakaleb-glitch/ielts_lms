@@ -68,7 +68,7 @@ export function AssignTest() {
 
   return (
     <div>
-      <Link to="/tests" className="text-sm text-blue-600 hover:underline">← Back to tests</Link>
+      <Link to="/tests" className="text-sm text-royal-blue hover:underline">← Back to tests</Link>
       <h1 className="mb-2 mt-4 text-2xl font-bold">Assign: {testTitle}</h1>
       <p className="mb-6 text-sm text-slate-600">Select students who should see this test in My Tests.</p>
 

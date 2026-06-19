@@ -1,13 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Profile, UserRole } from '../types/assessment'
+import type { Profile } from '../types/assessment'
 
 interface AuthContextValue {
   user: { id: string; email?: string } | null
   profile: Profile | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-  signUp: (email: string, password: string, displayName: string, role: UserRole) => Promise<{ error: Error | null }>
+  signUp: (email: string, password: string, displayName: string, role: 'teacher' | 'student') => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? new Error(error.message) : null }
   }
 
-  const signUp = async (email: string, password: string, displayName: string, role: UserRole) => {
+  const signUp = async (email: string, password: string, displayName: string, role: 'teacher' | 'student') => {
     const { error } = await supabase.auth.signUp({
       email,
       password,

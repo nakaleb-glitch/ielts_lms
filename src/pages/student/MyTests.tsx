@@ -99,7 +99,7 @@ export function MyTests() {
                   <button
                     type="button"
                     onClick={() => startTest(a)}
-                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
                   >
                     {a.session ? 'Continue' : 'Start test'}
                   </button>

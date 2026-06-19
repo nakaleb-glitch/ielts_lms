@@ -154,13 +154,13 @@ export function TestBuilder() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <Link to="/tests" className="text-sm text-blue-600 hover:underline">← Back to tests</Link>
+        <Link to="/tests" className="text-sm text-royal-blue hover:underline">← Back to tests</Link>
         <div className="flex gap-2">
           {test.status === 'draft' && (
             <button
               type="button"
               onClick={publish}
-              className="rounded-md bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700"
+              className="rounded-md bg-royal-red px-4 py-2 text-sm text-white hover:opacity-90"
             >
               Publish
             </button>
@@ -168,7 +168,7 @@ export function TestBuilder() {
           {test.status === 'published' && (
             <Link
               to={`/tests/${testId}/assign`}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+              className="rounded-md bg-royal-blue px-4 py-2 text-sm text-white hover:opacity-90"
             >
               Assign students
             </Link>
@@ -209,14 +209,14 @@ export function TestBuilder() {
       <div className="mb-4 flex gap-2">
         <button
           type="button"
-          className={`rounded-md px-3 py-1.5 text-sm ${tab === 'edit' ? 'bg-blue-600 text-white' : 'bg-white border'}`}
+          className={`rounded-md px-3 py-1.5 text-sm ${tab === 'edit' ? 'bg-royal-blue text-white' : 'bg-white border'}`}
           onClick={() => setTab('edit')}
         >
           Edit
         </button>
         <button
           type="button"
-          className={`rounded-md px-3 py-1.5 text-sm ${tab === 'preview' ? 'bg-blue-600 text-white' : 'bg-white border'}`}
+          className={`rounded-md px-3 py-1.5 text-sm ${tab === 'preview' ? 'bg-royal-blue text-white' : 'bg-white border'}`}
           onClick={() => setTab('preview')}
         >
           Preview
@@ -244,7 +244,7 @@ export function TestBuilder() {
           <div className="col-span-3 space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Passages</h3>
-              <button type="button" onClick={addPassage} className="text-sm text-blue-600">+ Add</button>
+              <button type="button" onClick={addPassage} className="text-sm text-royal-blue">+ Add</button>
             </div>
             {passages.map((p) => (
               <button
@@ -252,7 +252,7 @@ export function TestBuilder() {
                 type="button"
                 onClick={() => setActivePassageId(p.id)}
                 className={`w-full rounded-md border px-3 py-2 text-left text-sm ${
-                  p.id === activePassageId ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
+                  p.id === activePassageId ? 'border-royal-blue bg-blue-50' : 'border-slate-200 bg-white'
                 }`}
               >
                 {p.title} ({p.questions.length} Q)
@@ -356,7 +356,7 @@ function QuestionEditor({
           Q{question.global_order} · {QUESTION_TYPE_LABELS[question.type]}
         </span>
         <div className="flex gap-2">
-          <button type="button" onClick={onPreview} className="text-xs text-blue-600">Preview</button>
+          <button type="button" onClick={onPreview} className="text-xs text-royal-blue">Preview</button>
           <button type="button" onClick={onDelete} className="text-xs text-red-600">Delete</button>
         </div>
       </div>
@@ -434,7 +434,7 @@ function QuestionEditor({
       <button
         type="button"
         onClick={save}
-        className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+        className="rounded-md bg-royal-blue px-3 py-1.5 text-sm text-white hover:opacity-90"
       >
         Save question
       </button>

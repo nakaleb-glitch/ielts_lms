@@ -1,5 +1,6 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { BrandHeader } from './BrandHeader'
 
 export function Layout() {
   const { profile, signOut } = useAuth()
@@ -13,29 +14,27 @@ export function Layout() {
   const isStudent = profile?.role === 'student'
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-royal-grey">
+      <header className="border-b-4 border-royal-blue bg-white shadow-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link to="/" className="text-lg font-semibold text-slate-900">
-            IELTS Reading LMS
+          <Link to="/">
+            <BrandHeader compact />
           </Link>
           <nav className="flex items-center gap-4 text-sm">
             {isStudent ? (
-              <Link to="/my-tests" className="text-slate-700 hover:text-slate-900">
+              <Link to="/my-tests" className="text-slate-700 hover:text-royal-blue">
                 My Tests
               </Link>
             ) : (
-              <>
-                <Link to="/tests" className="text-slate-700 hover:text-slate-900">
-                  Tests
-                </Link>
-              </>
+              <Link to="/tests" className="text-slate-700 hover:text-royal-blue">
+                Tests
+              </Link>
             )}
             <span className="text-slate-500">{profile?.display_name}</span>
             <button
               type="button"
               onClick={handleSignOut}
-              className="rounded-md bg-slate-100 px-3 py-1.5 text-slate-700 hover:bg-slate-200"
+              className="rounded-md bg-royal-red px-3 py-1.5 text-white hover:opacity-90"
             >
               Sign out
             </button>

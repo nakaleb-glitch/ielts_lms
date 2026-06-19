@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import type { UserRole } from '../types/assessment'
+import { BrandHeader } from '../components/BrandHeader'
+
+type SignUpRole = 'teacher' | 'student'
 
 export function Login() {
   const { signIn, signUp } = useAuth()
@@ -10,7 +12,7 @@ export function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
-  const [role, setRole] = useState<UserRole>('teacher')
+  const [role, setRole] = useState<SignUpRole>('teacher')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -32,22 +34,25 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-sm">
-        <h1 className="mb-2 text-2xl font-bold text-slate-900">IELTS Reading LMS</h1>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-royal-grey px-4 py-8">
+      <div className="mb-6">
+        <BrandHeader />
+      </div>
+      <div className="w-full max-w-md rounded-xl border-t-4 border-royal-blue bg-white p-8 shadow-sm">
+        <h1 className="mb-2 text-xl font-bold text-slate-900">IELTS Reading LMS</h1>
         <p className="mb-6 text-sm text-slate-600">Sign in to create or take reading tests.</p>
 
         <div className="mb-4 flex gap-2">
           <button
             type="button"
-            className={`flex-1 rounded-md py-2 text-sm ${mode === 'login' ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}
+            className={`flex-1 rounded-md py-2 text-sm ${mode === 'login' ? 'bg-royal-blue text-white' : 'bg-slate-100'}`}
             onClick={() => setMode('login')}
           >
             Sign in
           </button>
           <button
             type="button"
-            className={`flex-1 rounded-md py-2 text-sm ${mode === 'signup' ? 'bg-blue-600 text-white' : 'bg-slate-100'}`}
+            className={`flex-1 rounded-md py-2 text-sm ${mode === 'signup' ? 'bg-royal-blue text-white' : 'bg-slate-100'}`}
             onClick={() => setMode('signup')}
           >
             Sign up
@@ -68,11 +73,10 @@ export function Login() {
               <select
                 className="w-full rounded-md border border-slate-300 px-3 py-2"
                 value={role}
-                onChange={(e) => setRole(e.target.value as UserRole)}
+                onChange={(e) => setRole(e.target.value as SignUpRole)}
               >
                 <option value="teacher">Teacher</option>
                 <option value="student">Student</option>
-                <option value="admin">Admin</option>
               </select>
             </>
           )}
@@ -93,11 +97,11 @@ export function Login() {
             required
             minLength={6}
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-royal-red">{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-blue-600 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="w-full rounded-md bg-royal-blue py-2 font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             {loading ? 'Please wait...' : mode === 'login' ? 'Sign in' : 'Create account'}
           </button>

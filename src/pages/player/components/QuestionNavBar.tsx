@@ -49,12 +49,12 @@ export function QuestionNavBar({
               type="button"
               onClick={() => onSelect(i)}
               className={`relative min-w-[2rem] rounded border px-2 py-1 text-xs ${
-                active ? 'border-blue-600 bg-blue-50 font-semibold' : 'border-slate-300 bg-white'
+                active ? 'border-royal-blue bg-blue-50 font-semibold' : 'border-slate-300 bg-white'
               } ${flagged ? 'ring-1 ring-amber-400' : ''}`}
             >
               {i + 1}
               {answered && (
-                <span className="absolute left-0 right-0 top-0 h-0.5 rounded-t bg-blue-500" />
+                <span className="absolute left-0 right-0 top-0 h-0.5 rounded-t bg-royal-blue" />
               )}
             </button>
           )
@@ -77,7 +77,7 @@ export function QuestionNavBar({
       <button
         type="button"
         onClick={onOverview}
-        className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+        className="rounded-md bg-royal-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
       >
         Overview
       </button>

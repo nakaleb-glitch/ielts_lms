@@ -192,7 +192,7 @@ export function ReadingPlayer() {
 
   return (
     <div className="flex h-screen flex-col bg-slate-200">
-      <header className="flex items-center justify-between border-b border-slate-300 bg-white px-4 py-2">
+      <header className="flex items-center justify-between border-b-4 border-royal-blue bg-white px-4 py-2">
         <div>
           <h1 className="text-sm font-semibold text-slate-900">{test.title}</h1>
           <p className="text-xs text-slate-500">IELTS Academic Reading</p>
