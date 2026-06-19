@@ -39,7 +39,7 @@ export function Login() {
         <RoyalLogo showSubtitle />
       </div>
       <div className="w-full max-w-md rounded-xl border-t-4 border-royal-blue bg-white p-8 shadow-sm">
-        <h1 className="mb-2 text-xl font-bold text-slate-900">IELTS Reading LMS</h1>
+        <h1 className="mb-2 text-xl font-bold text-slate-900">IELTS LMS</h1>
         <p className="mb-6 text-sm text-slate-600">Sign in to create or take reading tests.</p>
 
         <div className="mb-4 flex gap-2">

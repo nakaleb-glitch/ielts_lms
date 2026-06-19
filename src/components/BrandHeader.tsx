@@ -13,7 +13,7 @@ export function RoyalLogo({ showSubtitle = false, compact = false }: RoyalLogoPr
       />
       {showSubtitle && (
         <div className="hidden border-l border-slate-200 pl-3 sm:block">
-          <p className="text-sm font-semibold text-slate-800">IELTS Reading LMS</p>
+          <p className="text-sm font-semibold text-slate-800">IELTS LMS</p>
         </div>
       )}
     </div>

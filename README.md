@@ -1,4 +1,4 @@
-# IELTS Reading LMS
+# IELTS LMS
 
 An online IELTS Reading test platform for schools. Teachers create and publish reading tests; students take them in an Inspera-style player with timer, question navigation, flagging, and autosave.
 

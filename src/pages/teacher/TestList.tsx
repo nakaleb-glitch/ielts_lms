@@ -34,6 +34,7 @@ export function TestList({ module }: TestListProps) {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const label = MODULE_LABELS[module]
+  const canCreate = module === 'reading'
 
   useEffect(() => {
     loadTests()
@@ -51,6 +52,7 @@ export function TestList({ module }: TestListProps) {
   }
 
   const createTest = async () => {
+    if (!canCreate) return
     setError('')
     const userId = user?.id ?? profile?.id
     if (!userId) {
@@ -115,29 +117,43 @@ export function TestList({ module }: TestListProps) {
         </div>
       )}
 
+      {!canCreate && (
+        <div className="mb-4 rounded-md border border-royal-yellow/50 bg-yellow-50 px-4 py-3 text-sm text-slate-700">
+          {label} test creation is coming soon. Only Reading tests can be created at this time.
+        </div>
+      )}
+
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">{label} Tests</h1>
-        <button
-          type="button"
-          onClick={createTest}
-          disabled={creating}
-          className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {creating ? 'Creating...' : 'Create test'}
-        </button>
+        {canCreate && (
+          <button
+            type="button"
+            onClick={createTest}
+            disabled={creating}
+            className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {creating ? 'Creating...' : 'Create test'}
+          </button>
+        )}
       </div>
 
       {tests.length === 0 ? (
-        <button
-          type="button"
-          onClick={createTest}
-          disabled={creating}
-          className="w-full rounded-lg border border-dashed border-royal-blue/40 bg-white p-8 text-center text-slate-600 hover:border-royal-blue hover:bg-blue-50/30 disabled:opacity-50"
-        >
-          {creating
-            ? 'Creating test...'
-            : `No tests yet. Click here to create your first IELTS ${label} test.`}
-        </button>
+        canCreate ? (
+          <button
+            type="button"
+            onClick={createTest}
+            disabled={creating}
+            className="w-full rounded-lg border border-dashed border-royal-blue/40 bg-white p-8 text-center text-slate-600 hover:border-royal-blue hover:bg-blue-50/30 disabled:opacity-50"
+          >
+            {creating
+              ? 'Creating test...'
+              : `No tests yet. Click here to create your first IELTS ${label} test.`}
+          </button>
+        ) : (
+          <div className="w-full rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-slate-600">
+            No {label.toLowerCase()} tests yet. Test creation for this module is coming soon.
+          </div>
+        )
       ) : (
         <div className="space-y-3">
           {tests.map((test) => (
