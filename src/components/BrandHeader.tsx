@@ -19,23 +19,3 @@ export function RoyalLogo({ showSubtitle = false, compact = false }: RoyalLogoPr
     </div>
   )
 }
-
-export function CambridgeLogo({ compact = false }: { compact?: boolean }) {
-  return (
-    <img
-      src="/logos/cambridge.png"
-      alt="Cambridge Assessment International Education"
-      className={compact ? 'h-10 w-auto max-w-[180px] object-contain' : 'h-12 w-auto max-w-[220px] object-contain'}
-    />
-  )
-}
-
-/** @deprecated Use RoyalLogo / CambridgeLogo separately */
-export function BrandHeader({ showSubtitle = true, compact = false }: RoyalLogoProps) {
-  return (
-    <div className="flex items-center gap-3">
-      <RoyalLogo showSubtitle={showSubtitle} compact={compact} />
-      <CambridgeLogo compact={compact} />
-    </div>
-  )
-}

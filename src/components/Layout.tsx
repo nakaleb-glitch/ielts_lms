@@ -1,6 +1,6 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { RoyalLogo, CambridgeLogo } from './BrandHeader'
+import { RoyalLogo } from './BrandHeader'
 import { ModuleNavDropdown } from './ModuleNavDropdown'
 
 export function Layout() {
@@ -34,7 +34,6 @@ export function Layout() {
             >
               Sign out
             </button>
-            <CambridgeLogo compact />
           </nav>
         </div>
       </header>
