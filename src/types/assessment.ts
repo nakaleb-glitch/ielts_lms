@@ -18,6 +18,8 @@ export interface Profile {
   role: UserRole
   display_name: string
   email: string | null
+  student_id: string | null
+  must_change_password: boolean
   created_at: string
 }
 

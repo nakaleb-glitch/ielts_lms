@@ -6,7 +6,7 @@ import { RoyalLogo } from '../components/BrandHeader'
 export function Login() {
   const { signIn } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,7 +16,7 @@ export function Login() {
     setError('')
     setLoading(true)
 
-    const result = await signIn(email, password)
+    const result = await signIn(identifier, password)
 
     setLoading(false)
     if (result.error) {
@@ -34,16 +34,16 @@ export function Login() {
       <div className="w-full max-w-md rounded-xl border-t-4 border-royal-blue bg-white p-8 shadow-sm">
         <h1 className="mb-2 text-xl font-bold text-slate-900">IELTS Assessment Hub</h1>
         <p className="mb-6 text-sm text-slate-600">
-          Sign in with your school account. Contact an administrator if you need access.
+          Students: sign in with your Student ID. Teachers and admins: sign in with your email.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
-            type="email"
-            placeholder="Email"
+            type="text"
+            placeholder="Student ID or email"
             className="w-full rounded-md border border-slate-300 px-3 py-2"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             required
           />
           <input

@@ -5,8 +5,8 @@ import type { SchoolClass } from '../../types/assessment'
 
 interface StudentRow {
   id: string
+  student_id: string | null
   display_name: string
-  email: string | null
 }
 
 export function ClassManagement() {
@@ -184,7 +184,7 @@ export function ClassManagement() {
                 >
                   <div>
                     <p className="font-medium">{s.display_name}</p>
-                    <p className="text-sm text-slate-500">{s.email}</p>
+                    <p className="text-sm text-slate-500">{s.student_id || s.display_name}</p>
                   </div>
                   <input
                     type="checkbox"

@@ -28,6 +28,8 @@ An online IELTS Reading test platform for schools. Teachers create and publish r
 ```bash
 supabase functions deploy score-session
 supabase functions deploy create-user
+supabase functions deploy reset-password
+supabase functions deploy import-students-csv
 ```
 
 4. Enable Email auth in Authentication → Providers
@@ -73,6 +75,12 @@ Connect the repo to Vercel and set the same environment variables. SPA routing i
 | Student | My Tests, exam player, own results |
 
 **Public sign-up is disabled.** Admins create student and teacher accounts at `/admin/users` and organize students into classes at `/admin/classes`.
+
+**Student login:** Students sign in with their **Student ID** (not email). Default password is `royal@123`; students must change it on first login.
+
+**CSV import:** At `/admin/users`, upload a CSV with columns `student_id,class` (optional `name`). Creates students, classes, and class memberships as needed.
+
+**Teachers/admins** sign in with their email address.
 
 **Default admin** (created by migration `20260619130100_seed_default_admin.sql`):
 

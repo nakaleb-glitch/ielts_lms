@@ -1,7 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { DEFAULT_STUDENT_PASSWORD } from '../_shared/studentAuth.ts'
-import { createStudentAccount } from '../_shared/createStudent.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,81 +38,55 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { data: profile } = await adminClient
+    const { data: adminProfile } = await adminClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
+    if (adminProfile?.role !== 'admin') {
       return new Response(JSON.stringify({ error: 'Admin access required' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const body = await req.json()
-    const { role } = body
+    const { user_id, student_id } = await req.json()
+    let targetUserId = user_id
 
-    if (!['student', 'teacher'].includes(role)) {
-      return new Response(JSON.stringify({ error: 'role must be student or teacher' }), {
+    if (!targetUserId && student_id) {
+      const { data: profile } = await adminClient
+        .from('profiles')
+        .select('id')
+        .eq('student_id', student_id.trim())
+        .single()
+      targetUserId = profile?.id
+    }
+
+    if (!targetUserId) {
+      return new Response(JSON.stringify({ error: 'user_id or student_id is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    if (role === 'student') {
-      const { student_id, display_name } = body
-      if (!student_id) {
-        return new Response(JSON.stringify({ error: 'student_id is required for students' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
-
-      const created = await createStudentAccount(adminClient, student_id, display_name)
-      return new Response(JSON.stringify({ user: created }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const { email, display_name, password } = body
-    if (!email || !display_name) {
-      return new Response(JSON.stringify({ error: 'email and display_name are required for teachers' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const teacherPassword = password || DEFAULT_STUDENT_PASSWORD
-    if (teacherPassword.length < 6) {
-      return new Response(JSON.stringify({ error: 'Password must be at least 6 characters' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-      email,
-      password: teacherPassword,
-      email_confirm: true,
-      user_metadata: {
-        display_name,
-        role: 'teacher',
-        created_by_admin: true,
-        must_change_password: false,
-      },
+    const { error: updateError } = await adminClient.auth.admin.updateUserById(targetUserId, {
+      password: DEFAULT_STUDENT_PASSWORD,
     })
 
-    if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
+    if (updateError) {
+      return new Response(JSON.stringify({ error: updateError.message }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    return new Response(JSON.stringify({ user: { id: newUser.user?.id, email: newUser.user?.email } }), {
+    await adminClient
+      .from('profiles')
+      .update({ must_change_password: true })
+      .eq('id', targetUserId)
+
+    return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
+import { toAuthIdentifier } from '../lib/studentAuth'
 import type { Profile } from '../types/assessment'
 
 interface AuthContextValue {
   user: { id: string; email?: string } | null
   profile: Profile | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  signIn: (identifier: string, password: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -54,8 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const signIn = async (identifier: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: toAuthIdentifier(identifier),
+      password,
+    })
     return { error: error ? new Error(error.message) : null }
   }
 

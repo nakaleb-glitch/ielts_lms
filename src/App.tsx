@@ -14,6 +14,7 @@ import { MyTests } from './pages/student/MyTests'
 import { ComingSoon } from './pages/student/ComingSoon'
 import { StudentResults } from './pages/student/Results'
 import { ReadingPlayer } from './pages/player/ReadingPlayer'
+import { ChangePassword } from './pages/ChangePassword'
 
 const queryClient = new QueryClient()
 
@@ -25,6 +26,10 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<RoleRedirect />} />
+
+            <Route element={<ProtectedRoute />}>
+              <Route path="/change-password" element={<ChangePassword />} />
+            </Route>
 
             <Route element={<ProtectedRoute roles={['admin', 'teacher']} />}>
               <Route element={<Layout />}>

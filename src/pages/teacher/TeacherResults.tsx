@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 interface ResultRow {
   session_id: string
   student_name: string
-  student_email: string | null
+  student_id: string | null
   raw_score: number
   total_questions: number
   band_score: number
@@ -33,21 +33,21 @@ export function TeacherResults() {
       .from('test_assignments')
       .select(`
         id,
-        student:profiles!test_assignments_student_id_fkey(display_name, email),
+        student:profiles!test_assignments_student_id_fkey(display_name, student_id),
         session:test_sessions(id, submitted_at, status),
         result:session_results(raw_score, total_questions, band_score)
       `)
       .eq('test_id', testId)
 
     const mapped: ResultRow[] = (assignments || []).map((a) => {
-      const studentRaw = a.student as { display_name: string; email: string | null } | { display_name: string; email: string | null }[]
+      const studentRaw = a.student as { display_name: string; student_id: string | null } | { display_name: string; student_id: string | null }[]
       const student = Array.isArray(studentRaw) ? studentRaw[0] : studentRaw
       const session = Array.isArray(a.session) ? a.session[0] : a.session
       const result = Array.isArray(a.result) ? a.result[0] : a.result
       return {
         session_id: session?.id || '',
         student_name: student?.display_name || 'Unknown',
-        student_email: student?.email || null,
+        student_id: student?.student_id || null,
         raw_score: result?.raw_score ?? 0,
         total_questions: result?.total_questions ?? 0,
         band_score: result?.band_score ?? 0,
@@ -83,7 +83,7 @@ export function TeacherResults() {
               <tr key={r.session_id || r.student_name} className="border-b border-slate-100">
                 <td className="px-4 py-3">
                   <p className="font-medium">{r.student_name}</p>
-                  <p className="text-slate-500">{r.student_email}</p>
+                  <p className="text-slate-500">{r.student_id || '—'}</p>
                 </td>
                 <td className="px-4 py-3">
                   {r.submitted_at ? (
