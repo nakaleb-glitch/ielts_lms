@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { buildPassageStructure, formatQuestionRange } from '../../lib/questionGroups'
+import type { PassageStructure } from '../../lib/questionGroups'
 import type { Passage, Question, ResponseValue, Test } from '../../types/assessment'
 import { PassagePane } from './components/PassagePane'
-import { QuestionPane } from './components/QuestionPane'
+import { QuestionGroupPane } from './components/QuestionGroupPane'
 import { QuestionNavBar } from './components/QuestionNavBar'
 import { OverviewModal } from './components/OverviewModal'
 import { useTimer } from './components/Timer'
@@ -17,7 +19,8 @@ export function ReadingPlayer() {
   const navigate = useNavigate()
   const [test, setTest] = useState<Test | null>(null)
   const [questions, setQuestions] = useState<FlatQuestion[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [currentPartIndex, setCurrentPartIndex] = useState(0)
+  const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null)
   const [responses, setResponses] = useState<Map<string, ResponseValue | null>>(new Map())
   const [flags, setFlags] = useState<Map<string, boolean>>(new Map())
   const [startedAt, setStartedAt] = useState<string>('')
@@ -68,11 +71,21 @@ export function ReadingPlayer() {
     for (const p of passages || []) {
       const qs = (p.questions || []).sort((a: Question, b: Question) => a.global_order - b.global_order)
       for (const q of qs) {
-        flat.push({ ...q, passage: { id: p.id, test_id: p.test_id, order_index: p.order_index, title: p.title, body: p.body } })
+        flat.push({
+          ...q,
+          passage: {
+            id: p.id,
+            test_id: p.test_id,
+            order_index: p.order_index,
+            title: p.title,
+            body: p.body,
+          },
+        })
       }
     }
     flat.sort((a, b) => a.global_order - b.global_order)
     setQuestions(flat)
+    if (flat.length) setCurrentQuestionId(flat[0].id)
 
     const { data: existingResponses } = await supabase
       .from('responses')
@@ -94,8 +107,37 @@ export function ReadingPlayer() {
     load()
   }, [load])
 
+  const parts: PassageStructure[] = useMemo(() => {
+    const seen = new Set<string>()
+    const orderedPassages: Passage[] = []
+    for (const q of questions) {
+      if (!seen.has(q.passage.id)) {
+        seen.add(q.passage.id)
+        orderedPassages.push(q.passage)
+      }
+    }
+    return orderedPassages.map((passage) => {
+      const qs = questions.filter((q) => q.passage.id === passage.id)
+      return buildPassageStructure(passage, qs)
+    })
+  }, [questions])
+
+  const partNav = useMemo(
+    () =>
+      parts.map((p) => ({
+        partNumber: p.passage.order_index,
+        passageId: p.passage.id,
+        questions: p.groups.flatMap((g) =>
+          g.questions.map((q) => ({ id: q.id, globalOrder: q.global_order }))
+        ),
+        rangeStart: p.rangeStart,
+        rangeEnd: p.rangeEnd,
+      })),
+    [parts]
+  )
+
   const questionIds = useMemo(() => questions.map((q) => q.id), [questions])
-  const current = questions[currentIndex]
+  const currentPart = parts[currentPartIndex]
 
   const persistResponse = useCallback(
     async (questionId: string, value: ResponseValue | null, flagged?: boolean) => {
@@ -123,25 +165,37 @@ export function ReadingPlayer() {
     )
   }
 
-  const handleChange = (value: ResponseValue) => {
-    if (!current) return
+  const handleChange = (questionId: string, value: ResponseValue) => {
     setResponses((prev) => {
       const next = new Map(prev)
-      next.set(current.id, value)
+      next.set(questionId, value)
       return next
     })
-    debouncedSave(current.id, value)
+    debouncedSave(questionId, value)
   }
 
-  const handleToggleFlag = async () => {
-    if (!current) return
-    const nextFlag = !flags.get(current.id)
+  const handleToggleFlag = async (questionId: string) => {
+    const nextFlag = !flags.get(questionId)
     setFlags((prev) => {
       const next = new Map(prev)
-      next.set(current.id, nextFlag)
+      next.set(questionId, nextFlag)
       return next
     })
-    await persistResponse(current.id, responses.get(current.id) ?? null, nextFlag)
+    await persistResponse(questionId, responses.get(questionId) ?? null, nextFlag)
+  }
+
+  const handleSelectPart = (index: number) => {
+    setCurrentPartIndex(index)
+    const firstQ = partNav[index]?.questions[0]
+    if (firstQ) setCurrentQuestionId(firstQ.id)
+  }
+
+  const handleSelectQuestion = (questionId: string) => {
+    const partIdx = parts.findIndex((p) =>
+      p.groups.some((g) => g.questions.some((q) => q.id === questionId))
+    )
+    if (partIdx >= 0) setCurrentPartIndex(partIdx)
+    setCurrentQuestionId(questionId)
   }
 
   const submitTest = async () => {
@@ -182,7 +236,7 @@ export function ReadingPlayer() {
     onExpire: handleExpire,
   })
 
-  if (loading || !test || !current) {
+  if (loading || !test || !currentPart) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100">
         <p>Loading test...</p>
@@ -190,39 +244,45 @@ export function ReadingPlayer() {
     )
   }
 
+  const rangeLabel = formatQuestionRange(currentPart.rangeStart, currentPart.rangeEnd)
+
   return (
     <div className="flex h-screen flex-col bg-slate-200">
-      <header className="flex items-center justify-between border-b-4 border-royal-blue bg-white px-4 py-2">
-        <div>
-          <h1 className="text-sm font-semibold text-slate-900">{test.title}</h1>
-          <p className="text-xs text-slate-500">IELTS Academic Reading</p>
+      <header className="border-b-4 border-royal-blue bg-white px-4 py-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h1 className="text-sm font-semibold text-slate-900">{test.title}</h1>
+            <p className="text-xs text-slate-500">IELTS Academic Reading</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-semibold text-slate-900">Part {currentPart.passage.order_index}</p>
+            <p className="text-xs text-slate-600">
+              Read the text and answer questions {rangeLabel}.
+            </p>
+          </div>
         </div>
-        <p className="text-xs text-slate-500">
-          Question {currentIndex + 1} of {questions.length}
-        </p>
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-2">
-        <PassagePane title={current.passage.title} body={current.passage.body} />
-        <QuestionPane
-          question={current}
-          questionNumber={current.global_order}
-          value={responses.get(current.id) ?? null}
-          flagged={flags.get(current.id) ?? false}
+        <PassagePane title={currentPart.passage.title} body={currentPart.passage.body} />
+        <QuestionGroupPane
+          groups={currentPart.groups}
+          responses={responses}
+          flags={flags}
+          activeQuestionId={currentQuestionId}
           onChange={handleChange}
           onToggleFlag={handleToggleFlag}
         />
       </div>
 
       <QuestionNavBar
-        total={questions.length}
-        currentIndex={currentIndex}
+        parts={partNav}
+        currentPartIndex={currentPartIndex}
+        currentQuestionId={currentQuestionId}
         responses={responses}
         flags={flags}
-        questionIds={questionIds}
-        onSelect={setCurrentIndex}
-        onPrev={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-        onNext={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
+        onSelectPart={handleSelectPart}
+        onSelectQuestion={handleSelectQuestion}
         onOverview={() => setOverviewOpen(true)}
         timerLabel={timerLabel}
       />

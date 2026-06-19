@@ -49,6 +49,9 @@ export interface QuestionConfig {
   blanks?: string[]
   items?: string[]
   matchOptions?: string[]
+  directions?: string
+  groupId?: string
+  noteHeading?: string
 }
 
 export interface Question {

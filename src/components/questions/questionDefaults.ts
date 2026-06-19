@@ -21,6 +21,30 @@ export function defaultConfig(type: QuestionType) {
   }
 }
 
+export const DEFAULT_DIRECTIONS: Record<QuestionType, string> = {
+  multiple_choice: 'Choose the correct letter, A, B, C or D.',
+  true_false_not_given:
+    'Choose TRUE if the statement agrees with the information given in the text, choose FALSE if the statement contradicts the information, or choose NOT GIVEN if there is no information on this.',
+  yes_no_not_given:
+    'Choose YES if the statement agrees with the views of the writer, choose NO if the statement contradicts the views of the writer, or choose NOT GIVEN if it is impossible to say what the writer thinks about this.',
+  gap_fill: 'Complete the notes. Write ONE WORD ONLY from the text for each answer.',
+  matching: 'Match each statement with the correct option.',
+}
+
+export function defaultPrompt(type: QuestionType, index: number): string {
+  switch (type) {
+    case 'true_false_not_given':
+    case 'yes_no_not_given':
+      return `Statement ${index}…`
+    case 'gap_fill':
+      return `When … ${index} …`
+    case 'multiple_choice':
+      return `Question ${index}`
+    default:
+      return `Item ${index}`
+  }
+}
+
 export function defaultAnswer(type: QuestionType): unknown {
   switch (type) {
     case 'multiple_choice':
