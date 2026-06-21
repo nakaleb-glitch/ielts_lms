@@ -8,6 +8,7 @@ interface StudentRow {
   id: string
   student_id: string | null
   display_name: string
+  class_names: string
 }
 
 interface TestOption {
@@ -321,7 +322,8 @@ export function ClassManagement() {
                   >
                     <div>
                       <p className="font-medium">{s.display_name}</p>
-                      <p className="text-sm text-slate-500">{s.student_id || s.display_name}</p>
+                      <p className="text-sm text-slate-500">{s.student_id || '—'}</p>
+                      <p className="text-sm text-slate-500">{s.class_names || 'No class'}</p>
                     </div>
                     <input
                       type="checkbox"
