@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-export function useActiveExamSession(studentId: string | undefined) {
+export function useActiveExamSession(studentId: string | undefined, pathname?: string) {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [loading, setLoading] = useState(Boolean(studentId))
 
@@ -34,7 +34,7 @@ export function useActiveExamSession(studentId: string | undefined) {
     return () => {
       cancelled = true
     }
-  }, [studentId])
+  }, [studentId, pathname])
 
   return { sessionId, loading }
 }

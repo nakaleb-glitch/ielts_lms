@@ -28,6 +28,7 @@ export function ReadingPlayer() {
   const [sessionStatus, setSessionStatus] = useState<string>('in_progress')
   const [overviewOpen, setOverviewOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [loading, setLoading] = useState(true)
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
@@ -205,28 +206,30 @@ export function ReadingPlayer() {
   const submitTest = async () => {
     if (!sessionId) return
     setSubmitting(true)
+    setSubmitError('')
 
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token
+    try {
+      const { data, error } = await supabase.functions.invoke('score-session', {
+        body: { session_id: sessionId },
+      })
 
-    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/score-session`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({ session_id: sessionId }),
-    })
+      if (error) {
+        setSubmitError(error.message || 'Failed to submit test')
+        return
+      }
 
-    setSubmitting(false)
-    setOverviewOpen(false)
+      if (data?.error) {
+        setSubmitError(data.error)
+        return
+      }
 
-    if (res.ok) {
+      setSessionStatus('submitted')
+      setOverviewOpen(false)
       navigate(`/results/${sessionId}`, { replace: true })
-    } else {
-      const err = await res.json()
-      alert(err.error || 'Failed to submit test')
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to submit test')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -287,7 +290,10 @@ export function ReadingPlayer() {
         flags={flags}
         onSelectPart={handleSelectPart}
         onSelectQuestion={handleSelectQuestion}
-        onOverview={() => setOverviewOpen(true)}
+        onOverview={() => {
+          setSubmitError('')
+          setOverviewOpen(true)
+        }}
         timerLabel={timerLabel}
       />
 
@@ -297,9 +303,13 @@ export function ReadingPlayer() {
         questionIds={questionIds}
         responses={responses}
         flags={flags}
-        onClose={() => setOverviewOpen(false)}
+        onClose={() => {
+          setSubmitError('')
+          setOverviewOpen(false)
+        }}
         onSubmit={submitTest}
         submitting={submitting}
+        submitError={submitError}
       />
     </div>
   )

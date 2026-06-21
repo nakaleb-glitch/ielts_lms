@@ -10,6 +10,7 @@ interface OverviewModalProps {
   onClose: () => void
   onSubmit: () => void
   submitting: boolean
+  submitError?: string
 }
 
 export function OverviewModal({
@@ -21,6 +22,7 @@ export function OverviewModal({
   onClose,
   onSubmit,
   submitting,
+  submitError,
 }: OverviewModalProps) {
   if (!open) return null
 
@@ -41,6 +43,7 @@ export function OverviewModal({
             You have unanswered questions. You can still submit, but they will be marked incorrect.
           </p>
         )}
+        {submitError && <p className="mb-4 text-sm text-royal-red">{submitError}</p>}
         <div className="flex justify-end gap-2">
           <button
             type="button"

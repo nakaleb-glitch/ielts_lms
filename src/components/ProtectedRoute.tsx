@@ -15,8 +15,10 @@ export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
   const { user, profile, loading } = useAuth()
   const location = useLocation()
   const isStudent = profile?.role === 'student'
+  const onResultsPage = location.pathname.startsWith('/results/')
   const { sessionId: activeSessionId, loading: activeSessionLoading } = useActiveExamSession(
-    isStudent ? profile?.id : undefined
+    isStudent ? profile?.id : undefined,
+    location.pathname
   )
 
   if (loading || (user && !profile) || (isStudent && activeSessionLoading)) {
@@ -34,6 +36,7 @@ export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
   if (
     isStudent &&
     activeSessionId &&
+    !onResultsPage &&
     location.pathname !== `/player/${activeSessionId}` &&
     location.pathname !== '/change-password'
   ) {
@@ -50,9 +53,11 @@ export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
 
 export function RoleRedirect() {
   const { user, profile, loading } = useAuth()
+  const location = useLocation()
   const isStudent = profile?.role === 'student'
   const { sessionId: activeSessionId, loading: activeSessionLoading } = useActiveExamSession(
-    isStudent ? profile?.id : undefined
+    isStudent ? profile?.id : undefined,
+    location.pathname
   )
 
   if (loading || (user && !profile) || (isStudent && activeSessionLoading)) {
