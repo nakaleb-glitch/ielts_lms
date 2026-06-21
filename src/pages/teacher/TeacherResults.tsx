@@ -13,6 +13,13 @@ interface ResultRow {
   submitted_at: string | null
 }
 
+interface SessionWithResult {
+  id: string
+  submitted_at: string | null
+  status: string
+  result?: { raw_score: number; total_questions: number; band_score: number } | { raw_score: number; total_questions: number; band_score: number }[] | null
+}
+
 export function TeacherResults() {
   const { testId } = useParams<{ testId: string }>()
   const [searchParams] = useSearchParams()
@@ -21,6 +28,7 @@ export function TeacherResults() {
   const [className, setClassName] = useState('')
   const [rows, setRows] = useState<ResultRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     load()
@@ -29,6 +37,7 @@ export function TeacherResults() {
   const load = async () => {
     if (!testId) return
     setLoading(true)
+    setError('')
 
     const [{ data: test }, classResult, membersResult] = await Promise.all([
       supabase.from('tests').select('title').eq('id', testId).single(),
@@ -47,24 +56,37 @@ export function TeacherResults() {
       ? new Set((membersResult.data || []).map((m: { id: string }) => m.id))
       : null
 
-    const { data: assignments } = await supabase
+    const { data: assignments, error: assignmentsError } = await supabase
       .from('test_assignments')
       .select(`
         id,
         student_id,
         student:profiles!test_assignments_student_id_fkey(display_name, student_id),
-        session:test_sessions(id, submitted_at, status),
-        result:session_results(raw_score, total_questions, band_score)
+        session:test_sessions(
+          id,
+          submitted_at,
+          status,
+          result:session_results(raw_score, total_questions, band_score)
+        )
       `)
       .eq('test_id', testId)
+
+    if (assignmentsError) {
+      setError(assignmentsError.message)
+      setRows([])
+      setLoading(false)
+      return
+    }
 
     const mapped: ResultRow[] = (assignments || [])
       .filter((a) => !memberIds || memberIds.has(a.student_id))
       .map((a) => {
         const studentRaw = a.student as { display_name: string; student_id: string | null } | { display_name: string; student_id: string | null }[]
         const student = Array.isArray(studentRaw) ? studentRaw[0] : studentRaw
-        const session = Array.isArray(a.session) ? a.session[0] : a.session
-        const result = Array.isArray(a.result) ? a.result[0] : a.result
+        const sessionRaw = a.session as SessionWithResult | SessionWithResult[] | null
+        const session = Array.isArray(sessionRaw) ? sessionRaw[0] : sessionRaw
+        const resultRaw = session?.result
+        const result = Array.isArray(resultRaw) ? resultRaw[0] : resultRaw
         return {
           session_id: session?.id || '',
           student_profile_id: a.student_id,
@@ -96,6 +118,12 @@ export function TeacherResults() {
       <h1 className="mb-6 mt-4 text-2xl font-bold">
         Results: {testTitle}{titleSuffix}
       </h1>
+
+      {error && (
+        <div className="mb-4 rounded-md border border-royal-red/30 bg-red-50 px-4 py-3 text-sm text-royal-red">
+          {error}
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <p className="text-slate-600">
