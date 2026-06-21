@@ -294,6 +294,20 @@ export function TestBuilder() {
               onBlur={() => saveTestMeta({ duration_minutes: test.duration_minutes })}
             />
           </label>
+          <label className="mt-3 block text-sm">
+            <span className="font-medium text-slate-700">Exam access password</span>
+            <input
+              type="text"
+              className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1"
+              placeholder="Optional — give to students on test day"
+              value={test.access_password || ''}
+              onChange={(e) => setTest({ ...test, access_password: e.target.value || null })}
+              onBlur={() => saveTestMeta({ access_password: test.access_password || null })}
+            />
+            <span className="mt-1 block text-xs text-slate-500">
+              Leave blank for no password. Students must enter this before starting the exam.
+            </span>
+          </label>
           <p className="mt-2 text-xs text-slate-500">{saving ? 'Saving...' : `Status: ${test.status}`}</p>
         </div>
       </div>
@@ -340,7 +354,7 @@ export function TestBuilder() {
           onChange={(e) => setTest({ ...test, instructions: e.target.value })}
           onBlur={() => saveTestMeta({ instructions: test.instructions })}
         />
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex flex-wrap items-center gap-4 text-sm">
           <label className="flex items-center gap-2">
             Duration (min)
             <input
@@ -353,6 +367,20 @@ export function TestBuilder() {
           </label>
           <span className="text-slate-500">{saving ? 'Saving...' : `Status: ${test.status}`}</span>
         </div>
+        <label className="mt-3 block text-sm">
+          <span className="font-medium text-slate-700">Exam access password</span>
+          <input
+            type="text"
+            className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1"
+            placeholder="Optional — give to students on test day"
+            value={test.access_password || ''}
+            onChange={(e) => setTest({ ...test, access_password: e.target.value || null })}
+            onBlur={() => saveTestMeta({ access_password: test.access_password || null })}
+          />
+          <span className="mt-1 block text-xs text-slate-500">
+            Leave blank for no password. Students must enter this before starting the exam.
+          </span>
+        </label>
       </div>
 
       <div className="mb-4 flex gap-2">

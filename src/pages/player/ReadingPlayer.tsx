@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { useExamLock } from '../../hooks/useExamLock'
 import { buildPassageStructure, formatQuestionRange } from '../../lib/questionGroups'
 import type { PassageStructure } from '../../lib/questionGroups'
 import type { Passage, Question, ResponseValue, Test } from '../../types/assessment'
@@ -39,7 +40,7 @@ export function ReadingPlayer() {
       .select(`
         *,
         assignment:test_assignments(
-          test:tests(*)
+          test:tests(id, title, instructions, duration_minutes, status, module)
         )
       `)
       .eq('id', sessionId)
@@ -106,6 +107,9 @@ export function ReadingPlayer() {
   useEffect(() => {
     load()
   }, [load])
+
+  const isLocked = sessionStatus === 'in_progress'
+  useExamLock(isLocked)
 
   const parts: PassageStructure[] = useMemo(() => {
     const seen = new Set<string>()

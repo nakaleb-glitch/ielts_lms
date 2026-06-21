@@ -5,15 +5,21 @@ import { useAuth } from '../../contexts/AuthContext'
 import type { Test, TestAssignment, TestSession } from '../../types/assessment'
 
 interface AssignmentRow extends TestAssignment {
-  test: Test
+  test: Pick<Test, 'id' | 'title' | 'duration_minutes' | 'module' | 'status' | 'instructions'>
   session: TestSession | null
 }
+
+const STUDENT_TEST_FIELDS = 'id, title, duration_minutes, module, status, instructions'
 
 export function MyTests() {
   const { profile } = useAuth()
   const navigate = useNavigate()
   const [assignments, setAssignments] = useState<AssignmentRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [starting, setStarting] = useState(false)
+  const [passwordModal, setPasswordModal] = useState<AssignmentRow | null>(null)
+  const [examPassword, setExamPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
 
   useEffect(() => {
     if (profile?.id) load()
@@ -25,7 +31,7 @@ export function MyTests() {
       .from('test_assignments')
       .select(`
         *,
-        test:tests(*),
+        test:tests(${STUDENT_TEST_FIELDS}),
         session:test_sessions(*)
       `)
       .eq('student_id', profile!.id)
@@ -36,10 +42,31 @@ export function MyTests() {
         ...a,
         session: Array.isArray(a.session) ? a.session[0] : a.session,
       }))
-      .filter((a) => (a.test as Test)?.module === 'reading' || !(a.test as Test)?.module)
+      .filter((a) => a.test?.module === 'reading' || !a.test?.module)
 
     setAssignments(mapped)
     setLoading(false)
+  }
+
+  const beginSession = async (assignmentId: string, password: string) => {
+    setStarting(true)
+    setPasswordError('')
+
+    const { data: sessionId, error } = await supabase.rpc('start_test_session', {
+      p_assignment_id: assignmentId,
+      p_password: password,
+    })
+
+    setStarting(false)
+
+    if (error) {
+      setPasswordError(error.message)
+      return
+    }
+
+    setPasswordModal(null)
+    setExamPassword('')
+    navigate(`/player/${sessionId}`)
   }
 
   const startTest = async (assignment: AssignmentRow) => {
@@ -53,15 +80,24 @@ export function MyTests() {
       return
     }
 
-    const { data: session, error } = await supabase
-      .from('test_sessions')
-      .insert({ assignment_id: assignment.id })
-      .select()
-      .single()
+    const { data: requiresPassword, error: checkError } = await supabase.rpc(
+      'assignment_requires_password',
+      { p_assignment_id: assignment.id }
+    )
 
-    if (!error && session) {
-      navigate(`/player/${session.id}`)
+    if (checkError) {
+      setPasswordError(checkError.message)
+      return
     }
+
+    if (requiresPassword) {
+      setPasswordError('')
+      setExamPassword('')
+      setPasswordModal(assignment)
+      return
+    }
+
+    await beginSession(assignment.id, '')
   }
 
   const getStatus = (a: AssignmentRow) => {
@@ -111,6 +147,49 @@ export function MyTests() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {passwordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
+            <h2 className="mb-1 text-lg font-semibold text-slate-900">Enter exam password</h2>
+            <p className="mb-4 text-sm text-slate-600">
+              Your teacher will give you the password on test day to begin{' '}
+              <strong>{passwordModal.test.title}</strong>.
+            </p>
+            <input
+              type="password"
+              placeholder="Exam password"
+              className="mb-2 w-full rounded-md border border-slate-300 px-3 py-2"
+              value={examPassword}
+              onChange={(e) => setExamPassword(e.target.value)}
+              autoFocus
+            />
+            {passwordError && <p className="mb-2 text-sm text-royal-red">{passwordError}</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPasswordModal(null)
+                  setExamPassword('')
+                  setPasswordError('')
+                }}
+                disabled={starting}
+                className="rounded-md px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => beginSession(passwordModal.id, examPassword)}
+                disabled={starting || !examPassword.trim()}
+                className="rounded-md bg-royal-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {starting ? 'Starting…' : 'Begin exam'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

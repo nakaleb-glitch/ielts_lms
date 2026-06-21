@@ -31,6 +31,7 @@ export interface Test {
   duration_minutes: number
   status: TestStatus
   module: TestModule
+  access_password: string | null
   created_by: string
   created_at: string
   updated_at: string

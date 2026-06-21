@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useActiveExamSession } from '../hooks/useActiveExamSession'
 import type { UserRole } from '../types/assessment'
 
 function AuthLoading() {
@@ -13,8 +14,12 @@ function AuthLoading() {
 export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
   const { user, profile, loading } = useAuth()
   const location = useLocation()
+  const isStudent = profile?.role === 'student'
+  const { sessionId: activeSessionId, loading: activeSessionLoading } = useActiveExamSession(
+    isStudent ? profile?.id : undefined
+  )
 
-  if (loading || (user && !profile)) {
+  if (loading || (user && !profile) || (isStudent && activeSessionLoading)) {
     return <AuthLoading />
   }
 
@@ -24,6 +29,15 @@ export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
 
   if (profile.must_change_password && location.pathname !== '/change-password') {
     return <Navigate to="/change-password" replace />
+  }
+
+  if (
+    isStudent &&
+    activeSessionId &&
+    location.pathname !== `/player/${activeSessionId}` &&
+    location.pathname !== '/change-password'
+  ) {
+    return <Navigate to={`/player/${activeSessionId}`} replace />
   }
 
   if (roles && !roles.includes(profile.role)) {
@@ -36,8 +50,12 @@ export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
 
 export function RoleRedirect() {
   const { user, profile, loading } = useAuth()
+  const isStudent = profile?.role === 'student'
+  const { sessionId: activeSessionId, loading: activeSessionLoading } = useActiveExamSession(
+    isStudent ? profile?.id : undefined
+  )
 
-  if (loading || (user && !profile)) {
+  if (loading || (user && !profile) || (isStudent && activeSessionLoading)) {
     return <AuthLoading />
   }
 
@@ -46,6 +64,11 @@ export function RoleRedirect() {
   }
 
   if (profile.must_change_password) return <Navigate to="/change-password" replace />
+
+  if (isStudent && activeSessionId) {
+    return <Navigate to={`/player/${activeSessionId}`} replace />
+  }
+
   if (profile.role === 'student') return <Navigate to="/my-tests/reading" replace />
   return <Navigate to="/tests/reading" replace />
 }

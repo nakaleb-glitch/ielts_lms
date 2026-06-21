@@ -27,12 +27,21 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-royal-grey px-4 py-8">
-      <div className="mb-6">
-        <RoyalLogo showSubtitle />
-      </div>
-      <div className="w-full max-w-md rounded-xl border-t-4 border-royal-blue bg-white p-8 shadow-sm">
-        <h1 className="mb-2 text-xl font-bold text-slate-900">IELTS Assessment Hub</h1>
+    <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-8">
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/images/login-background.png')" }}
+        aria-hidden
+      />
+      <div className="absolute inset-0 bg-slate-900/45" aria-hidden />
+
+      <div className="relative z-10 w-full max-w-md rounded-xl border-t-4 border-royal-blue bg-white p-8 shadow-xl">
+        <div className="mb-6 flex items-center gap-3 border-b border-slate-100 pb-6">
+          <RoyalLogo />
+          <div className="border-l border-slate-200 pl-3">
+            <h1 className="text-lg font-semibold text-slate-800">IELTS Assessment Hub</h1>
+          </div>
+        </div>
         <p className="mb-6 text-sm text-slate-600">
           Sign in with your Student ID or Staff ID and password.
         </p>
