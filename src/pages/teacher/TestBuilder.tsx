@@ -13,9 +13,9 @@ import {
   defaultPrompt,
   DEFAULT_DIRECTIONS,
   defaultHeadings,
-  defaultSummaryTemplate,
-  defaultWordBank,
+  emptyWordBank,
   formatParagraphLabelRange,
+  SUMMARY_TEXT_PLACEHOLDER,
   formatRomanRange,
   generateParagraphLabels,
   generateRomanNumerals,
@@ -143,10 +143,6 @@ export function TestBuilder() {
     const questionCount = type === 'matching_headings' ? (labels?.length ?? count) : count
     const headingList = headings || (type === 'matching_headings' ? defaultHeadings(9) : undefined)
     const bankCount = wordBankCount ?? 10
-    const summaryText =
-      type === 'summary_completion' ? defaultSummaryTemplate(questionCount) : undefined
-    const wordBank =
-      type === 'summary_completion' ? defaultWordBank(bankCount) : undefined
 
     for (let i = 0; i < questionCount; i++) {
       globalOrder++
@@ -159,8 +155,9 @@ export function TestBuilder() {
         ...(labels ? { paragraphLabels: labels } : {}),
         ...(allowReuse !== undefined ? { allowReuse } : {}),
         ...(headingList ? { headings: headingList } : {}),
-        ...(summaryText ? { summaryText } : {}),
-        ...(wordBank ? { wordBank } : {}),
+        ...(type === 'summary_completion'
+          ? { summaryText: '', wordBank: emptyWordBank(bankCount) }
+          : {}),
       }
 
       const paragraphLabel = labels?.[i]
@@ -254,7 +251,7 @@ export function TestBuilder() {
       directions: DEFAULT_DIRECTIONS[type],
       count:
         type === 'summary_completion' ? 6 : type === 'matching_information' ? 6 : type === 'matching_headings' ? 4 : 6,
-      noteHeading: type === 'summary_completion' ? 'International Uses for Fermentation' : '',
+      noteHeading: '',
       wordBankCount: 10,
       paragraphCount,
       headingCount,
@@ -715,11 +712,11 @@ function GroupModal({
         {modal.type === 'summary_completion' && (
           <>
             <label className="mb-3 block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">Summary title</span>
+              <span className="mb-1 block text-sm font-medium text-slate-700">Summary title (optional)</span>
               <input
                 type="text"
                 className="w-full rounded-md border border-slate-200 px-2 py-1 text-sm"
-                placeholder="e.g. International Uses for Fermentation"
+                placeholder="Optional — e.g. key themes of the passage"
                 value={modal.noteHeading}
                 onChange={(e) => onChange({ ...modal, noteHeading: e.target.value })}
               />
@@ -845,8 +842,8 @@ function GroupEditorSection({
   const [noteHeading, setNoteHeading] = useState(section.noteHeading || '')
   const initialSummaryText = section.questions[0]?.config.summaryText || ''
   const [summaryText, setSummaryText] = useState(initialSummaryText)
-  const initialWordBank = section.questions[0]?.config.wordBank || defaultWordBank(10)
-  const [wordBankText, setWordBankText] = useState(initialWordBank.join('\n'))
+  const initialWordBank = section.questions[0]?.config.wordBank || emptyWordBank(10)
+  const [wordBank, setWordBank] = useState<string[]>(initialWordBank)
   const initialLabels = section.questions[0]?.config.paragraphLabels || generateParagraphLabels(8)
   const [paragraphCount, setParagraphCount] = useState(initialLabels.length)
   const [allowReuse, setAllowReuse] = useState(section.questions[0]?.config.allowReuse ?? false)
@@ -857,8 +854,8 @@ function GroupEditorSection({
     setDirections(section.directions)
     setNoteHeading(section.noteHeading || '')
     setSummaryText(section.questions[0]?.config.summaryText || '')
-    const bank = section.questions[0]?.config.wordBank || defaultWordBank(10)
-    setWordBankText(bank.join('\n'))
+    const bank = section.questions[0]?.config.wordBank || emptyWordBank(10)
+    setWordBank(bank)
     const labels = section.questions[0]?.config.paragraphLabels || generateParagraphLabels(8)
     setParagraphCount(labels.length)
     setAllowReuse(section.questions[0]?.config.allowReuse ?? false)
@@ -887,7 +884,7 @@ function GroupEditorSection({
             <>
               <input
                 className="mb-2 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-sm font-semibold"
-                placeholder="Summary title"
+                placeholder="Summary title (optional)"
                 value={noteHeading}
                 onChange={(e) => setNoteHeading(e.target.value)}
                 onBlur={() => {
@@ -897,7 +894,7 @@ function GroupEditorSection({
               <textarea
                 className="mb-2 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
                 rows={5}
-                placeholder="Summary text — use {{1}}, {{2}}, … for blanks"
+                placeholder={SUMMARY_TEXT_PLACEHOLDER}
                 value={summaryText}
                 onChange={(e) => setSummaryText(e.target.value)}
                 onBlur={() => {
@@ -911,20 +908,38 @@ function GroupEditorSection({
                   {section.questions.length} question(s).
                 </p>
               )}
-              <textarea
-                className="mb-2 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
-                rows={5}
-                placeholder="Word bank (one word per line)"
-                value={wordBankText}
-                onChange={(e) => setWordBankText(e.target.value)}
-                onBlur={() => {
-                  const next = wordBankText.split('\n').map((s) => s.trim()).filter(Boolean)
-                  const current = section.questions[0]?.config.wordBank || []
-                  if (next.join('\n') !== current.join('\n')) {
-                    onUpdateMeta({ wordBank: next })
+              <p className="mb-1 text-xs font-medium text-slate-600">Word bank</p>
+              <div
+                className="mb-2 space-y-1.5 rounded-md border border-slate-200 bg-white p-2"
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                    const current = section.questions[0]?.config.wordBank || []
+                    if (wordBank.join('\0') !== current.join('\0')) {
+                      onUpdateMeta({ wordBank })
+                    }
                   }
                 }}
-              />
+              >
+                {wordBank.map((word, i) => {
+                  const label = generateParagraphLabels(wordBank.length)[i]
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="w-6 shrink-0 text-sm font-bold text-slate-700">{label}</span>
+                      <input
+                        type="text"
+                        className="flex-1 rounded-md border border-slate-200 px-2 py-1 text-sm"
+                        placeholder={`Word for ${label}`}
+                        value={word}
+                        onChange={(e) => {
+                          const next = [...wordBank]
+                          next[i] = e.target.value
+                          setWordBank(next)
+                        }}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
             </>
           )}
           {section.type === 'matching_information' && (

@@ -45,40 +45,19 @@ export function defaultHeadings(count: number): string[] {
   return Array.from({ length: count }, (_, i) => `Heading ${i + 1}`)
 }
 
-export function defaultWordBank(count: number): string[] {
-  const defaults = [
-    'ingesting', 'yogurt', 'longevity', 'pickled products', 'wine',
-    'food', 'kimchi', 'cheese', 'detoxifying', 'vegetables',
-  ]
-  return defaults.slice(0, count)
+export function emptyWordBank(count: number): string[] {
+  return Array.from({ length: Math.max(0, count) }, () => '')
 }
 
-export function defaultSummaryTemplate(blankCount: number): string {
-  const parts = [
-    'At the start of the 20th century, Dr. Elie Metchnikoff put forward his belief that the',
-    'and good health of Bulgarians could be attributed to eating fermented food each day. By',
-    'and preserving milk, they were able to convert it into',
-    'and',
-    'In other parts of Europe, fermented',
-    'was consumed as a replacement for clean water. People used to ferment',
-    'which gave them a longer lifespan but nowadays mass production favours pickling.',
-  ]
-  if (blankCount <= 0) return ''
-  if (blankCount === 1) return `${parts[0]} {{1}} ${parts[1]}`
-  let text = parts[0]
-  for (let i = 1; i <= blankCount; i++) {
-    text += ` {{${i}}} `
-    if (i < parts.length) text += parts[i]
-  }
-  return text.trim()
-}
+export const SUMMARY_TEXT_PLACEHOLDER =
+  'Write the summary here. Insert blanks using {{1}}, {{2}}, {{3}}, etc. — one numbered placeholder per blank, matching the questions in this group (e.g. {{1}} … {{6}} for 6 blanks).'
 
 export function defaultConfig(type: QuestionType) {
   switch (type) {
     case 'multiple_choice':
       return { options: ['Option A', 'Option B', 'Option C', 'Option D'] }
     case 'summary_completion':
-      return { wordBank: defaultWordBank(10), summaryText: defaultSummaryTemplate(6) }
+      return { wordBank: emptyWordBank(10), summaryText: '' }
     case 'matching_information':
       return { paragraphLabels: generateParagraphLabels(8), allowReuse: true }
     case 'matching_headings':
