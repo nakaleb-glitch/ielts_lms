@@ -15,6 +15,8 @@ import {
   defaultHeadings,
   emptyWordBank,
   formatParagraphLabelRange,
+  mcDirections,
+  resizeMcOptions,
   SUMMARY_TEXT_PLACEHOLDER,
   formatRomanRange,
   generateParagraphLabels,
@@ -22,7 +24,7 @@ import {
   QUESTION_TYPE_LABELS,
 } from '../../components/questions/questionDefaults'
 import { countSummaryBlanks } from '../../lib/summaryCompletion'
-import type { Passage, Question, QuestionType, Test } from '../../types/assessment'
+import type { McOptionCount, Passage, Question, QuestionType, Test } from '../../types/assessment'
 
 type PassageWithQuestions = Passage & { questions: (Question & { answer?: { acceptable_answers: unknown } })[] }
 
@@ -43,6 +45,7 @@ export function TestBuilder() {
     paragraphCount: number
     headingCount: number
     allowReuse: boolean
+    optionCount: McOptionCount
   } | null>(null)
   const [groupError, setGroupError] = useState<string | null>(null)
 
@@ -129,7 +132,8 @@ export function TestBuilder() {
     paragraphLabels?: string[],
     allowReuse?: boolean,
     headings?: string[],
-    wordBankCount?: number
+    wordBankCount?: number,
+    optionCount: McOptionCount = 4
   ): Promise<boolean> => {
     const passage = passages.find((p) => p.id === activePassageId)
     if (!passage || count < 1) return false
@@ -148,7 +152,7 @@ export function TestBuilder() {
       globalOrder++
       orderIndex++
       const config = {
-        ...defaultConfig(type),
+        ...defaultConfig(type, type === 'multiple_choice' ? optionCount : undefined),
         directions,
         groupId,
         ...(noteHeading ? { noteHeading } : {}),
@@ -206,6 +210,7 @@ export function TestBuilder() {
       headings?: string[]
       summaryText?: string
       wordBank?: string[]
+      optionCount?: McOptionCount
     }
   ) => {
     const passage = passages.find((p) => p.id === activePassageId)
@@ -213,21 +218,43 @@ export function TestBuilder() {
 
     const inGroup = passage.questions.filter((q) => q.config.groupId === groupId)
     for (const q of inGroup) {
+      const nextConfig = {
+        ...q.config,
+        ...(updates.directions !== undefined ? { directions: updates.directions } : {}),
+        ...(updates.noteHeading !== undefined ? { noteHeading: updates.noteHeading } : {}),
+        ...(updates.paragraphLabels !== undefined ? { paragraphLabels: updates.paragraphLabels } : {}),
+        ...(updates.allowReuse !== undefined ? { allowReuse: updates.allowReuse } : {}),
+        ...(updates.headings !== undefined ? { headings: updates.headings } : {}),
+        ...(updates.summaryText !== undefined ? { summaryText: updates.summaryText } : {}),
+        ...(updates.wordBank !== undefined ? { wordBank: updates.wordBank } : {}),
+        ...(updates.optionCount !== undefined
+          ? {
+              optionCount: updates.optionCount,
+              options: resizeMcOptions(q.config.options || [], updates.optionCount),
+            }
+          : {}),
+      }
+
       await supabase
         .from('questions')
-        .update({
-          config: {
-            ...q.config,
-            ...(updates.directions !== undefined ? { directions: updates.directions } : {}),
-            ...(updates.noteHeading !== undefined ? { noteHeading: updates.noteHeading } : {}),
-            ...(updates.paragraphLabels !== undefined ? { paragraphLabels: updates.paragraphLabels } : {}),
-            ...(updates.allowReuse !== undefined ? { allowReuse: updates.allowReuse } : {}),
-            ...(updates.headings !== undefined ? { headings: updates.headings } : {}),
-            ...(updates.summaryText !== undefined ? { summaryText: updates.summaryText } : {}),
-            ...(updates.wordBank !== undefined ? { wordBank: updates.wordBank } : {}),
-          },
-        })
+        .update({ config: nextConfig })
         .eq('id', q.id)
+
+      if (updates.optionCount !== undefined) {
+        const newOptions = nextConfig.options || []
+        const currentAnswer = Array.isArray(q.answer?.acceptable_answers)
+          ? String(q.answer.acceptable_answers[0] ?? '')
+          : ''
+        if (currentAnswer && !newOptions.includes(currentAnswer)) {
+          await supabase.from('question_answers').upsert(
+            {
+              question_id: q.id,
+              acceptable_answers: newOptions.length ? [newOptions[0]] : [],
+            },
+            { onConflict: 'question_id' }
+          )
+        }
+      }
     }
     await load()
   }
@@ -256,6 +283,7 @@ export function TestBuilder() {
       paragraphCount,
       headingCount,
       allowReuse: type === 'matching_information',
+      optionCount: 4,
     })
   }
 
@@ -629,7 +657,8 @@ export function TestBuilder() {
               labels,
               groupModal.type === 'matching_information' ? groupModal.allowReuse : undefined,
               headings,
-              groupModal.type === 'summary_completion' ? groupModal.wordBankCount : undefined
+              groupModal.type === 'summary_completion' ? groupModal.wordBankCount : undefined,
+              groupModal.type === 'multiple_choice' ? groupModal.optionCount : undefined
             )
           }}
         />
@@ -654,6 +683,7 @@ function GroupModal({
     paragraphCount: number
     headingCount: number
     allowReuse: boolean
+    optionCount: McOptionCount
   }
   error: string | null
   onChange: (m: typeof modal) => void
@@ -708,6 +738,31 @@ function GroupModal({
             }}
           />
         </label>
+
+        {modal.type === 'multiple_choice' && (
+          <label className="mb-3 block">
+            <span className="mb-1 block text-sm font-medium text-slate-700">Number of answer choices</span>
+            <div className="flex gap-4">
+              {([3, 4] as const).map((n) => (
+                <label key={n} className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="radio"
+                    name="optionCount"
+                    checked={modal.optionCount === n}
+                    onChange={() =>
+                      onChange({
+                        ...modal,
+                        optionCount: n,
+                        directions: mcDirections(n),
+                      })
+                    }
+                  />
+                  {n} choices ({n === 3 ? '1×3' : '2×2'} layout)
+                </label>
+              ))}
+            </div>
+          </label>
+        )}
 
         {modal.type === 'summary_completion' && (
           <>
@@ -828,6 +883,7 @@ function GroupEditorSection({
     headings?: string[]
     summaryText?: string
     wordBank?: string[]
+    optionCount?: McOptionCount
   }) => void
   onDeleteGroup: () => void
   onSaveQuestion: (q: Question, answer?: unknown) => void
@@ -849,6 +905,8 @@ function GroupEditorSection({
   const [allowReuse, setAllowReuse] = useState(section.questions[0]?.config.allowReuse ?? false)
   const initialHeadings = section.questions[0]?.config.headings || defaultHeadings(9)
   const [headingsText, setHeadingsText] = useState(initialHeadings.join('\n'))
+  const initialOptionCount = (section.questions[0]?.config.optionCount ?? 4) as McOptionCount
+  const [optionCount, setOptionCount] = useState<McOptionCount>(initialOptionCount)
 
   useEffect(() => {
     setDirections(section.directions)
@@ -861,6 +919,7 @@ function GroupEditorSection({
     setAllowReuse(section.questions[0]?.config.allowReuse ?? false)
     const h = section.questions[0]?.config.headings || defaultHeadings(9)
     setHeadingsText(h.join('\n'))
+    setOptionCount((section.questions[0]?.config.optionCount ?? 4) as McOptionCount)
   }, [section.groupId, section.directions, section.noteHeading, section.questions])
 
   return (
@@ -993,6 +1052,27 @@ function GroupEditorSection({
                 }
               }}
             />
+          )}
+          {section.type === 'multiple_choice' && (
+            <div className="mb-2">
+              <p className="mb-1 text-xs font-medium text-slate-600">Number of answer choices</p>
+              <div className="flex gap-4">
+                {([3, 4] as const).map((n) => (
+                  <label key={n} className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="radio"
+                      name={`optionCount-${section.groupId}`}
+                      checked={optionCount === n}
+                      onChange={() => {
+                        setOptionCount(n)
+                        onUpdateMeta({ optionCount: n })
+                      }}
+                    />
+                    {n} choices ({n === 3 ? '1×3' : '2×2'})
+                  </label>
+                ))}
+              </div>
+            </div>
           )}
         </div>
         <button type="button" onClick={onDeleteGroup} className="shrink-0 text-xs text-red-600 hover:underline">

@@ -46,8 +46,11 @@ export interface Passage {
   body: string
 }
 
+export type McOptionCount = 3 | 4
+
 export interface QuestionConfig {
   options?: string[]
+  optionCount?: McOptionCount
   summaryText?: string
   wordBank?: string[]
   headings?: string[]

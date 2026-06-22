@@ -93,12 +93,12 @@ function GroupBlock({
                 >
                   {q.global_order}
                 </span>
-                <p className="min-w-[140px] flex-1 text-sm text-slate-900">{q.prompt}</p>
+                <p className="min-w-[140px] flex-1 text-[12pt] text-slate-900">{q.prompt}</p>
                 <div className="flex flex-wrap gap-1">
                   {options.map((opt) => (
                     <label
                       key={opt}
-                      className={`flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs ${
+                      className={`flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-[12pt] ${
                         value === opt ? 'border-royal-blue bg-blue-50 font-medium' : 'border-slate-200 bg-white'
                       }`}
                     >
@@ -132,7 +132,7 @@ function GroupBlock({
       )}
 
       {isSummaryCompletion && summaryText && (
-        <p className="mb-4 text-sm leading-relaxed text-slate-900">
+        <p className="mb-4 text-[12pt] leading-relaxed text-slate-900">
           {summarySegments.map((segment, i) => {
             if (segment.kind === 'text') {
               return <span key={i}>{segment.value}</span>
@@ -150,7 +150,7 @@ function GroupBlock({
               >
                 <span className="font-bold">{segment.index}</span>
                 <select
-                  className="mx-0.5 inline-block w-12 border-b-2 border-dotted border-slate-800 bg-transparent text-center text-sm outline-none focus:border-royal-blue"
+                  className="mx-0.5 inline-block w-12 border-b-2 border-dotted border-slate-800 bg-transparent text-center text-[12pt] outline-none focus:border-royal-blue"
                   value={selected}
                   disabled={readOnly}
                   onChange={(e) => onChange(q.id, e.target.value)}
@@ -173,7 +173,7 @@ function GroupBlock({
         <div className="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
           <div className="grid grid-cols-3 gap-x-4 gap-y-2">
             {wordBank.map((word, i) => (
-              <div key={i} className="text-sm text-slate-900">
+              <div key={i} className="text-[12pt] text-slate-900">
                 <span className="font-bold">{wordBankLabels[i]}</span>
                 <span className="ml-2">{word}</span>
               </div>
@@ -203,12 +203,12 @@ function GroupBlock({
                 >
                   {q.global_order}
                 </span>
-                <p className="min-w-[140px] flex-1 text-sm text-slate-900">{q.prompt}</p>
+                <p className="min-w-[140px] flex-1 text-[12pt] text-slate-900">{q.prompt}</p>
                 <div className="flex flex-wrap gap-1">
                   {paragraphLabels.map((label) => (
                     <label
                       key={label}
-                      className={`flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs ${
+                      className={`flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-[12pt] ${
                         selected === label ? 'border-royal-blue bg-blue-50 font-medium' : 'border-slate-200 bg-white'
                       }`}
                     >
@@ -245,7 +245,7 @@ function GroupBlock({
         <div className="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
           <ul className="list-none space-y-2 pl-0">
             {headings.map((heading, i) => (
-              <li key={i} className="flex gap-2 text-sm leading-relaxed text-slate-900">
+              <li key={i} className="flex gap-2 text-[12pt] leading-relaxed text-slate-900">
                 <span className="text-slate-600">•</span>
                 <span className="font-bold">{headingNumerals[i]}</span>
                 <span>{heading}</span>
@@ -276,9 +276,9 @@ function GroupBlock({
                 >
                   {q.global_order}
                 </span>
-                <p className="min-w-[100px] flex-1 text-sm text-slate-900">{q.prompt}</p>
+                <p className="min-w-[100px] flex-1 text-[12pt] text-slate-900">{q.prompt}</p>
                 <select
-                  className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                  className="rounded-md border border-slate-300 px-2 py-1.5 text-[12pt]"
                   value={selected}
                   disabled={readOnly}
                   onChange={(e) => onChange(q.id, e.target.value)}
@@ -318,7 +318,7 @@ function GroupBlock({
                 id={`question-${q.id}`}
                 className={`rounded border border-slate-100 p-3 ${active ? 'border-royal-blue bg-blue-50/40' : ''}`}
               >
-                <p className="mb-2 text-sm font-medium text-slate-900">
+                <p className="mb-2 text-[12pt] font-medium text-slate-900">
                   <span className="mr-2 inline-flex h-6 w-6 items-center justify-center bg-slate-200 text-xs font-bold">
                     {q.global_order}
                   </span>
@@ -376,7 +376,7 @@ function SoloQuestion({
           </button>
         )}
       </div>
-      <p className="mb-3 text-sm font-medium text-slate-900">{question.prompt}</p>
+      <p className="mb-3 text-[12pt] font-medium text-slate-900">{question.prompt}</p>
       <QuestionInput
         question={question}
         value={responses.get(question.id) ?? null}

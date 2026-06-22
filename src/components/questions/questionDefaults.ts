@@ -1,4 +1,4 @@
-import type { QuestionType } from '../../types/assessment'
+import type { McOptionCount, QuestionType } from '../../types/assessment'
 
 export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   multiple_choice: 'Multiple Choice',
@@ -52,10 +52,30 @@ export function emptyWordBank(count: number): string[] {
 export const SUMMARY_TEXT_PLACEHOLDER =
   'Write the summary here. Insert blanks using {{1}}, {{2}}, {{3}}, etc. — one numbered placeholder per blank, matching the questions in this group (e.g. {{1}} … {{6}} for 6 blanks).'
 
-export function defaultConfig(type: QuestionType) {
+const MC_OPTION_LABELS = ['Option A', 'Option B', 'Option C', 'Option D']
+
+export function defaultMcOptions(count: McOptionCount): string[] {
+  return MC_OPTION_LABELS.slice(0, count)
+}
+
+export function resizeMcOptions(options: string[], count: McOptionCount): string[] {
+  const resized = options.slice(0, count)
+  while (resized.length < count) {
+    resized.push(MC_OPTION_LABELS[resized.length] ?? `Option ${String.fromCharCode(65 + resized.length)}`)
+  }
+  return resized
+}
+
+export function mcDirections(count: McOptionCount): string {
+  return count === 3
+    ? 'Choose the correct letter, A, B or C.'
+    : 'Choose the correct letter, A, B, C or D.'
+}
+
+export function defaultConfig(type: QuestionType, mcOptionCount: McOptionCount = 4) {
   switch (type) {
     case 'multiple_choice':
-      return { options: ['Option A', 'Option B', 'Option C', 'Option D'] }
+      return { options: defaultMcOptions(mcOptionCount), optionCount: mcOptionCount }
     case 'summary_completion':
       return { wordBank: emptyWordBank(10), summaryText: '' }
     case 'matching_information':

@@ -15,7 +15,7 @@ export function PassageBody({ body }: { body: string }) {
         {labeled.map((para) => (
           <div key={para.label} className="flex gap-3">
             <span className="w-5 shrink-0 text-sm font-bold text-slate-900">{para.label}</span>
-            <div className="min-w-0 flex-1 text-sm leading-relaxed text-slate-800">
+            <div className="min-w-0 flex-1 text-[12pt] leading-relaxed text-slate-800">
               <ReactMarkdown>{para.text}</ReactMarkdown>
             </div>
           </div>
@@ -25,7 +25,7 @@ export function PassageBody({ body }: { body: string }) {
   }
 
   return (
-    <div className="text-sm leading-relaxed text-slate-800">
+    <div className="text-[12pt] leading-relaxed text-slate-800">
       <ReactMarkdown>{body}</ReactMarkdown>
     </div>
   )
