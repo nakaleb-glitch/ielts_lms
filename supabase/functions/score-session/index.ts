@@ -11,7 +11,8 @@ type QuestionType =
   | 'true_false_not_given'
   | 'yes_no_not_given'
   | 'gap_fill'
-  | 'matching'
+  | 'matching_information'
+  | 'matching_headings'
 
 const ACADEMIC_BAND_TABLE: Record<number, number> = {
   40: 9, 39: 9, 38: 8.5, 37: 8.5, 36: 8, 35: 8, 34: 7.5, 33: 7.5,
@@ -72,12 +73,10 @@ function scoreQuestion(type: QuestionType, studentValue: unknown, acceptableAnsw
         return opts.some((o) => normalizeText(String(o)) === normalizeText(String(ans ?? '')))
       })
     }
-    case 'matching': {
-      const studentObj = (studentValue && typeof studentValue === 'object' ? studentValue : {}) as Record<string, string>
-      const acceptableObj = (acceptableAnswers && typeof acceptableAnswers === 'object' ? acceptableAnswers : {}) as Record<string, string>
-      const keys = Object.keys(acceptableObj)
-      if (keys.length === 0) return false
-      return keys.every((k) => normalizeText(String(studentObj[k] ?? '')) === normalizeText(String(acceptableObj[k])))
+    case 'matching_information':
+    case 'matching_headings': {
+      const expected = Array.isArray(acceptableAnswers) ? acceptableAnswers[0] : acceptableAnswers
+      return normalizeText(String(studentValue)) === normalizeText(String(expected))
     }
     default:
       return false
@@ -213,16 +212,7 @@ Deno.serve(async (req) => {
       const studentValue = responseMap.get(q.id) ?? null
       let correct = false
 
-      if (q.type === 'matching') {
-        correct = scoreQuestion(q.type, studentValue, q.acceptable_answers)
-        const acceptableObj = q.acceptable_answers as Record<string, string>
-        const studentObj = (studentValue || {}) as Record<string, string>
-        const keys = Object.keys(acceptableObj || {})
-        const partial = keys.filter(
-          (k) => normalizeText(String(studentObj[k] ?? '')) === normalizeText(String(acceptableObj[k]))
-        ).length
-        rawScore += partial
-      } else if (q.type === 'gap_fill') {
+      if (q.type === 'gap_fill') {
         const blankCount = (q.config as { blanks?: string[] }).blanks?.length ?? 1
         const studentArr = Array.isArray(studentValue) ? studentValue : [studentValue]
         const acceptableArr = Array.isArray(q.acceptable_answers) ? q.acceptable_answers : [q.acceptable_answers]

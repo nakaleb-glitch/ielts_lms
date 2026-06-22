@@ -4,7 +4,7 @@ An online IELTS Reading test platform for schools. Teachers create and publish r
 
 ## Features
 
-- **Test authoring** — Create passages and questions (MCQ, T/F/NG, Y/N/NG, gap fill, matching)
+- **Test authoring** — Create passages and questions (MCQ, T/F/NG, Y/N/NG, gap fill, matching information, matching headings)
 - **Publish & assign** — Assign published tests to individual students or whole classes
 - **Admin roster** — Admins create student/teacher accounts and organize students into classes
 - **Exam player** — Split-pane passage + question view, question tabs, countdown timer, flag for review
@@ -107,7 +107,24 @@ supabase/
 - **True/False/Not Given:** `["TRUE"]`
 - **Yes/No/Not Given:** `["NOT GIVEN"]`
 - **Gap fill:** `[["food"], ["security"]]` (one array per blank, multiple acceptable answers allowed)
-- **Matching:** `{"0": "Benefit", "1": "Challenge"}`
+- **Matching information:** `["C"]` (paragraph letter; one answer per question)
+- **Matching headings:** `["III"]` (roman numeral; one answer per paragraph)
+
+## Labeled passage paragraphs
+
+For Matching Information and Matching Headings questions, label paragraphs in the passage body using markdown markers on their own line:
+
+```
+**A**
+
+First paragraph text…
+
+**B**
+
+Second paragraph text…
+```
+
+The player renders these with an IELTS-style letter gutter (A, B, C…).
 
 ## Roadmap (not in MVP)
 

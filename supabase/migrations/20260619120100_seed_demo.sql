@@ -77,13 +77,13 @@ BEGIN
   INSERT INTO question_answers (question_id, acceptable_answers) VALUES (v_q4, '[["food"]]'::jsonb);
 
   INSERT INTO questions (passage_id, order_index, global_order, type, prompt, config)
-  VALUES (v_passage_id, 5, 5, 'matching',
-    'Match each feature to the correct category.',
-    '{"items": ["Rooftop gardens", "High startup costs"], "matchOptions": ["Benefit", "Challenge"]}'::jsonb)
+  VALUES (v_passage_id, 5, 5, 'matching_headings',
+    'Paragraph A',
+    '{"paragraphLabels": ["A","B","C","D"], "headings": ["Benefits of urban farms", "Challenges of urban farms", "Food security", "Community gardens", "Startup costs", "Environmental impact", "Policy support", "Rooftop space", "Local markets"]}'::jsonb)
   RETURNING id INTO v_q5;
 
   INSERT INTO question_answers (question_id, acceptable_answers)
-  VALUES (v_q5, '{"0": "Benefit", "1": "Challenge"}'::jsonb);
+  VALUES (v_q5, '["I"]'::jsonb);
 
   IF v_student_id IS NOT NULL THEN
     INSERT INTO test_assignments (test_id, student_id, assigned_by)

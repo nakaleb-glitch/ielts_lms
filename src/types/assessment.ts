@@ -11,7 +11,8 @@ export type QuestionType =
   | 'true_false_not_given'
   | 'yes_no_not_given'
   | 'gap_fill'
-  | 'matching'
+  | 'matching_information'
+  | 'matching_headings'
 
 export interface Profile {
   id: string
@@ -48,8 +49,9 @@ export interface Passage {
 export interface QuestionConfig {
   options?: string[]
   blanks?: string[]
-  items?: string[]
-  matchOptions?: string[]
+  headings?: string[]
+  paragraphLabels?: string[]
+  allowReuse?: boolean
   directions?: string
   groupId?: string
   noteHeading?: string

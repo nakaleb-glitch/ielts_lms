@@ -48,25 +48,6 @@ function scoreGapFill(student: unknown, acceptable: unknown): boolean {
   })
 }
 
-function scoreMatching(student: unknown, acceptable: unknown): boolean {
-  const studentObj = (student && typeof student === 'object' ? student : {}) as Record<string, string>
-  const acceptableObj = (acceptable && typeof acceptable === 'object' ? acceptable : {}) as Record<string, string>
-  const keys = Object.keys(acceptableObj)
-  if (keys.length === 0) return false
-  return keys.every((k) => normalizeText(String(studentObj[k] ?? '')) === normalizeText(String(acceptableObj[k])))
-}
-
-function scoreMatchingPartial(student: unknown, acceptable: unknown): { correct: number; total: number } {
-  const studentObj = (student && typeof student === 'object' ? student : {}) as Record<string, string>
-  const acceptableObj = (acceptable && typeof acceptable === 'object' ? acceptable : {}) as Record<string, string>
-  const keys = Object.keys(acceptableObj)
-  if (keys.length === 0) return { correct: 0, total: 0 }
-  const correct = keys.filter(
-    (k) => normalizeText(String(studentObj[k] ?? '')) === normalizeText(String(acceptableObj[k]))
-  ).length
-  return { correct, total: keys.length }
-}
-
 export function scoreQuestion(
   type: QuestionType,
   studentValue: ResponseValue | null | undefined,
@@ -87,10 +68,13 @@ export function scoreQuestion(
       const expected = Array.isArray(acceptableAnswers) ? acceptableAnswers[0] : acceptableAnswers
       return normalizeYnng(String(studentValue)) === normalizeYnng(String(expected))
     }
+    case 'matching_information':
+    case 'matching_headings': {
+      const expected = Array.isArray(acceptableAnswers) ? acceptableAnswers[0] : acceptableAnswers
+      return normalizeText(String(studentValue)) === normalizeText(String(expected))
+    }
     case 'gap_fill':
       return scoreGapFill(studentValue, acceptableAnswers)
-    case 'matching':
-      return scoreMatching(studentValue, acceptableAnswers)
     default:
       return false
   }
@@ -106,17 +90,7 @@ export function scoreSession(
   for (const q of questions) {
     const studentValue = responses.get(q.id) ?? null
 
-    if (q.type === 'matching') {
-      const { correct, total } = scoreMatchingPartial(studentValue, q.acceptable_answers)
-      rawScore += correct
-      breakdown.push({
-        question_id: q.id,
-        global_order: q.global_order,
-        correct: correct === total && total > 0,
-        student_value: studentValue,
-        correct_value: q.acceptable_answers,
-      })
-    } else if (q.type === 'gap_fill') {
+    if (q.type === 'gap_fill') {
       const blankCount = q.config.blanks?.length ?? 1
       const acceptable = q.acceptable_answers
       const studentArr = Array.isArray(studentValue) ? studentValue : [studentValue]

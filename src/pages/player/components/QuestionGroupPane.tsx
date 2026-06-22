@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { QuestionGroup, QuestionWithAnswer } from '../../../lib/questionGroups'
 import { formatQuestionRange } from '../../../lib/questionGroups'
-import { QUESTION_TYPE_LABELS } from '../../../components/questions/questionDefaults'
+import { QUESTION_TYPE_LABELS, generateRomanNumerals } from '../../../components/questions/questionDefaults'
 import { QuestionInput } from '../../../components/questions/QuestionInput'
 import type { ResponseValue } from '../../../types/assessment'
 
@@ -39,7 +39,13 @@ function GroupBlock({
   const range = formatQuestionRange(group.rangeStart, group.rangeEnd)
   const isTfng = group.type === 'true_false_not_given' || group.type === 'yes_no_not_given'
   const isGapFill = group.type === 'gap_fill'
+  const isMatchingInfo = group.type === 'matching_information'
+  const isMatchingHeadings = group.type === 'matching_headings'
   const options = tfngOptions(group.type)
+  const paragraphLabels = group.questions[0]?.config.paragraphLabels || ['A', 'B', 'C', 'D']
+  const allowReuse = group.questions[0]?.config.allowReuse ?? false
+  const headings = group.questions[0]?.config.headings || []
+  const headingNumerals = generateRomanNumerals(headings.length)
 
   return (
     <section className="mb-6 rounded-md border border-slate-200 bg-white p-4 shadow-sm">
@@ -48,10 +54,15 @@ function GroupBlock({
         <span className="ml-2 font-normal text-slate-500">({QUESTION_TYPE_LABELS[group.type]})</span>
       </h3>
       {group.directions && (
-        <p className="mb-3 text-sm leading-relaxed text-slate-700">{group.directions}</p>
+        <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{group.directions}</p>
       )}
       {group.noteHeading && (
         <p className="mb-3 text-sm font-semibold text-slate-800">{group.noteHeading}</p>
+      )}
+      {isMatchingInfo && allowReuse && (
+        <p className="mb-3 text-sm text-slate-700">
+          <span className="font-bold">NB</span> You may use any letter more than once.
+        </p>
       )}
 
       {isTfng && (
@@ -146,6 +157,132 @@ function GroupBlock({
         </ul>
       )}
 
+      {isMatchingInfo && (
+        <div className="space-y-1">
+          {group.questions.map((q) => {
+            const active = q.id === activeQuestionId
+            const value = responses.get(q.id) ?? null
+            const selected = typeof value === 'string' ? value : ''
+            return (
+              <div
+                key={q.id}
+                id={`question-${q.id}`}
+                className={`flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-100 py-3 last:border-0 ${
+                  active ? 'bg-blue-50/60 -mx-2 px-2 rounded' : ''
+                }`}
+              >
+                <span
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold ${
+                    active ? 'bg-royal-blue text-white' : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {q.global_order}
+                </span>
+                <p className="min-w-[140px] flex-1 text-sm text-slate-900">{q.prompt}</p>
+                <div className="flex flex-wrap gap-1">
+                  {paragraphLabels.map((label) => (
+                    <label
+                      key={label}
+                      className={`flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs ${
+                        selected === label ? 'border-royal-blue bg-blue-50 font-medium' : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name={q.id}
+                        checked={selected === label}
+                        disabled={readOnly}
+                        onChange={() => onChange(q.id, label)}
+                        className="sr-only"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                {!readOnly && onToggleFlag && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleFlag(q.id)}
+                    className={`rounded px-1.5 py-0.5 text-[10px] ${
+                      flags?.get(q.id) ? 'bg-amber-100 text-amber-800' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    {flags?.get(q.id) ? '★' : '☆'}
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {isMatchingHeadings && headings.length > 0 && (
+        <div className="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
+          <ul className="list-none space-y-2 pl-0">
+            {headings.map((heading, i) => (
+              <li key={i} className="flex gap-2 text-sm leading-relaxed text-slate-900">
+                <span className="text-slate-600">•</span>
+                <span className="font-bold">{headingNumerals[i]}</span>
+                <span>{heading}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {isMatchingHeadings && (
+        <div className="space-y-1">
+          {group.questions.map((q) => {
+            const active = q.id === activeQuestionId
+            const value = responses.get(q.id) ?? null
+            const selected = typeof value === 'string' ? value : ''
+            return (
+              <div
+                key={q.id}
+                id={`question-${q.id}`}
+                className={`flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-100 py-3 last:border-0 ${
+                  active ? 'bg-blue-50/60 -mx-2 px-2 rounded' : ''
+                }`}
+              >
+                <span
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold ${
+                    active ? 'bg-royal-blue text-white' : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {q.global_order}
+                </span>
+                <p className="min-w-[100px] flex-1 text-sm text-slate-900">{q.prompt}</p>
+                <select
+                  className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                  value={selected}
+                  disabled={readOnly}
+                  onChange={(e) => onChange(q.id, e.target.value)}
+                  aria-label={`Heading for ${q.prompt}`}
+                >
+                  <option value="">Select…</option>
+                  {headings.map((heading, i) => (
+                    <option key={i} value={headingNumerals[i]}>
+                      {headingNumerals[i]} — {heading}
+                    </option>
+                  ))}
+                </select>
+                {!readOnly && onToggleFlag && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleFlag(q.id)}
+                    className={`rounded px-1.5 py-0.5 text-[10px] ${
+                      flags?.get(q.id) ? 'bg-amber-100 text-amber-800' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    {flags?.get(q.id) ? '★' : '☆'}
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {group.type === 'multiple_choice' && (
         <div className="space-y-4">
           {group.questions.map((q) => {
@@ -171,25 +308,6 @@ function GroupBlock({
               </div>
             )
           })}
-        </div>
-      )}
-
-      {group.type === 'matching' && (
-        <div className="space-y-4">
-          {group.questions.map((q) => (
-            <div key={q.id} id={`question-${q.id}`} className="rounded border border-slate-100 p-3">
-              <p className="mb-2 text-sm font-medium">
-                <span className="mr-2 font-bold">Q{q.global_order}</span>
-                {q.prompt}
-              </p>
-              <QuestionInput
-                question={q}
-                value={responses.get(q.id) ?? null}
-                onChange={(v) => onChange(q.id, v)}
-                disabled={readOnly}
-              />
-            </div>
-          ))}
         </div>
       )}
     </section>

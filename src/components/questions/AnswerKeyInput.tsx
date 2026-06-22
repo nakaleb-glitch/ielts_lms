@@ -1,4 +1,5 @@
 import type { Question, QuestionType } from '../../types/assessment'
+import { generateRomanNumerals } from './questionDefaults'
 
 interface AnswerKeyInputProps {
   type: QuestionType
@@ -109,28 +110,48 @@ export function AnswerKeyInput({ type, config, value, onChange }: AnswerKeyInput
       )
     }
 
-    case 'matching': {
-      const items = config.items || []
-      const options = config.matchOptions || []
-      const obj = (value && typeof value === 'object' && !Array.isArray(value) ? value : {}) as Record<string, string>
+    case 'matching_information': {
+      const labels = config.paragraphLabels || ['A', 'B', 'C', 'D']
+      const selected = Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '')
       return (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-slate-500">Correct matches</p>
-          {items.map((item, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="min-w-[120px] font-medium">{item}</span>
-              <select
-                className="rounded-md border border-slate-200 px-2 py-1 text-sm"
-                value={obj[String(i)] || ''}
-                onChange={(e) => onChange({ ...obj, [String(i)]: e.target.value })}
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-slate-500">Correct paragraph</p>
+          <div className="flex flex-wrap gap-2">
+            {labels.map((label) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => onChange([label])}
+                className={`rounded-md border px-3 py-1.5 text-sm ${toggleClass(selected === label)}`}
               >
-                <option value="">Select…</option>
-                {options.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
-          ))}
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    case 'matching_headings': {
+      const headings = config.headings || []
+      const numerals = generateRomanNumerals(headings.length)
+      const selected = Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '')
+      return (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-slate-500">Correct heading</p>
+          <div className="flex flex-wrap gap-2">
+            {numerals.map((numeral, i) => (
+              <button
+                key={numeral}
+                type="button"
+                onClick={() => onChange([numeral])}
+                className={`rounded-md border px-3 py-1.5 text-sm ${toggleClass(selected === numeral)}`}
+                title={headings[i]}
+              >
+                {numeral}
+              </button>
+            ))}
+          </div>
         </div>
       )
     }

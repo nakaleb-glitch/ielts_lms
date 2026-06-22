@@ -4,12 +4,19 @@ import { supabase } from '../../lib/supabase'
 import { groupQuestionsInPassage, organizePassageSections, formatQuestionRange } from '../../lib/questionGroups'
 import type { PassageSection } from '../../lib/questionGroups'
 import { QuestionGroupPane } from '../player/components/QuestionGroupPane'
+import { PassageBody } from '../player/components/PassagePane'
+import { labeledPassagePlaceholder } from '../../lib/labeledPassage'
 import { AnswerKeyInput } from '../../components/questions/AnswerKeyInput'
 import {
   defaultAnswer,
   defaultConfig,
   defaultPrompt,
   DEFAULT_DIRECTIONS,
+  defaultHeadings,
+  formatParagraphLabelRange,
+  formatRomanRange,
+  generateParagraphLabels,
+  generateRomanNumerals,
   QUESTION_TYPE_LABELS,
 } from '../../components/questions/questionDefaults'
 import type { Passage, Question, QuestionType, Test } from '../../types/assessment'
@@ -29,6 +36,9 @@ export function TestBuilder() {
     directions: string
     count: number
     noteHeading: string
+    paragraphCount: number
+    headingCount: number
+    allowReuse: boolean
   } | null>(null)
 
   const load = useCallback(async () => {
@@ -110,7 +120,10 @@ export function TestBuilder() {
     type: QuestionType,
     directions: string,
     count: number,
-    noteHeading?: string
+    noteHeading?: string,
+    paragraphLabels?: string[],
+    allowReuse?: boolean,
+    headings?: string[]
   ) => {
     const passage = passages.find((p) => p.id === activePassageId)
     if (!passage || count < 1) return
@@ -118,8 +131,13 @@ export function TestBuilder() {
     const groupId = crypto.randomUUID()
     let globalOrder = passages.reduce((acc, p) => acc + p.questions.length, 0)
     let orderIndex = passage.questions.length
+    const labels =
+      paragraphLabels ||
+      (type === 'matching_headings' ? generateParagraphLabels(4) : undefined)
+    const questionCount = type === 'matching_headings' ? (labels?.length ?? count) : count
+    const headingList = headings || (type === 'matching_headings' ? defaultHeadings(9) : undefined)
 
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < questionCount; i++) {
       globalOrder++
       orderIndex++
       const config = {
@@ -127,8 +145,12 @@ export function TestBuilder() {
         directions,
         groupId,
         ...(noteHeading ? { noteHeading } : {}),
+        ...(labels ? { paragraphLabels: labels } : {}),
+        ...(allowReuse !== undefined ? { allowReuse } : {}),
+        ...(headingList ? { headings: headingList } : {}),
       }
 
+      const paragraphLabel = labels?.[i]
       const { data: q } = await supabase
         .from('questions')
         .insert({
@@ -136,7 +158,7 @@ export function TestBuilder() {
           order_index: orderIndex,
           global_order: globalOrder,
           type,
-          prompt: defaultPrompt(type, i + 1),
+          prompt: defaultPrompt(type, i + 1, paragraphLabel),
           config,
         })
         .select()
@@ -156,7 +178,13 @@ export function TestBuilder() {
 
   const updateGroupMeta = async (
     groupId: string,
-    updates: { directions?: string; noteHeading?: string }
+    updates: {
+      directions?: string
+      noteHeading?: string
+      paragraphLabels?: string[]
+      allowReuse?: boolean
+      headings?: string[]
+    }
   ) => {
     const passage = passages.find((p) => p.id === activePassageId)
     if (!passage) return
@@ -170,6 +198,9 @@ export function TestBuilder() {
             ...q.config,
             ...(updates.directions !== undefined ? { directions: updates.directions } : {}),
             ...(updates.noteHeading !== undefined ? { noteHeading: updates.noteHeading } : {}),
+            ...(updates.paragraphLabels !== undefined ? { paragraphLabels: updates.paragraphLabels } : {}),
+            ...(updates.allowReuse !== undefined ? { allowReuse: updates.allowReuse } : {}),
+            ...(updates.headings !== undefined ? { headings: updates.headings } : {}),
           },
         })
         .eq('id', q.id)
@@ -188,11 +219,17 @@ export function TestBuilder() {
   }
 
   const openGroupModal = (type: QuestionType) => {
+    const paragraphCount = type === 'matching_headings' ? 4 : 8
+    const headingCount = 9
     setGroupModal({
       type,
       directions: DEFAULT_DIRECTIONS[type],
-      count: type === 'gap_fill' ? 7 : 6,
+      count:
+        type === 'gap_fill' ? 7 : type === 'matching_information' ? 6 : type === 'matching_headings' ? 4 : 6,
       noteHeading: '',
+      paragraphCount,
+      headingCount,
+      allowReuse: type === 'matching_information',
     })
   }
 
@@ -425,7 +462,9 @@ export function TestBuilder() {
               <div className="border-b border-slate-200 px-4 py-3">
                 <h3 className="text-sm font-semibold text-slate-800">{activePassage?.title}</h3>
               </div>
-              <div className="whitespace-pre-wrap px-4 py-4 text-sm leading-relaxed">{activePassage?.body}</div>
+              <div className="px-4 py-4">
+                <PassageBody body={activePassage?.body ?? ''} />
+              </div>
             </div>
             <QuestionGroupPane
               groups={previewGroups}
@@ -475,7 +514,7 @@ export function TestBuilder() {
                   <textarea
                     className="w-full rounded-md border border-slate-200 p-2 text-sm"
                     rows={8}
-                    placeholder="Passage text (plain text or markdown-style paragraphs)"
+                    placeholder={`Passage text (plain text or markdown). For labeled paragraphs use:\n\n${labeledPassagePlaceholder()}`}
                     value={activePassage.body}
                     onChange={(e) => {
                       const updated = passages.map((p) =>
@@ -539,14 +578,29 @@ export function TestBuilder() {
           modal={groupModal}
           onChange={setGroupModal}
           onClose={() => setGroupModal(null)}
-          onSubmit={() =>
+          onSubmit={() => {
+            const labels =
+              groupModal.type === 'matching_information' || groupModal.type === 'matching_headings'
+                ? generateParagraphLabels(groupModal.paragraphCount)
+                : undefined
+            const headings =
+              groupModal.type === 'matching_headings'
+                ? defaultHeadings(groupModal.headingCount)
+                : undefined
+            const count =
+              groupModal.type === 'matching_headings'
+                ? groupModal.paragraphCount
+                : groupModal.count
             addQuestionGroup(
               groupModal.type,
               groupModal.directions,
-              groupModal.count,
-              groupModal.noteHeading || undefined
+              count,
+              groupModal.noteHeading || undefined,
+              labels,
+              groupModal.type === 'matching_information' ? groupModal.allowReuse : undefined,
+              headings
             )
-          }
+          }}
         />
       )}
     </div>
@@ -559,11 +613,22 @@ function GroupModal({
   onClose,
   onSubmit,
 }: {
-  modal: { type: QuestionType; directions: string; count: number; noteHeading: string }
+  modal: {
+    type: QuestionType
+    directions: string
+    count: number
+    noteHeading: string
+    paragraphCount: number
+    headingCount: number
+    allowReuse: boolean
+  }
   onChange: (m: typeof modal) => void
   onClose: () => void
   onSubmit: () => void
 }) {
+  const paragraphLabels = generateParagraphLabels(modal.paragraphCount)
+  const labelRange = formatParagraphLabelRange(paragraphLabels)
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
@@ -580,16 +645,23 @@ function GroupModal({
         </label>
 
         <label className="mb-3 block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Number of questions</span>
+          <span className="mb-1 block text-sm font-medium text-slate-700">
+            {modal.type === 'matching_headings' ? 'Number of paragraphs' : 'Number of questions'}
+          </span>
           <input
             type="number"
             min={1}
             max={20}
             className="w-24 rounded-md border border-slate-200 px-2 py-1 text-sm"
-            value={modal.count}
-            onChange={(e) =>
-              onChange({ ...modal, count: Math.min(20, Math.max(1, Number(e.target.value) || 1)) })
-            }
+            value={modal.type === 'matching_headings' ? modal.paragraphCount : modal.count}
+            onChange={(e) => {
+              const n = Math.min(20, Math.max(1, Number(e.target.value) || 1))
+              if (modal.type === 'matching_headings') {
+                onChange({ ...modal, paragraphCount: Math.min(8, Math.max(2, n)), count: n })
+              } else {
+                onChange({ ...modal, count: n })
+              }
+            }}
           />
         </label>
 
@@ -602,6 +674,58 @@ function GroupModal({
               placeholder="e.g. Marie Curie's research on radioactivity"
               value={modal.noteHeading}
               onChange={(e) => onChange({ ...modal, noteHeading: e.target.value })}
+            />
+          </label>
+        )}
+
+        {modal.type === 'matching_information' && (
+          <>
+            <label className="mb-3 block">
+              <span className="mb-1 block text-sm font-medium text-slate-700">
+                Paragraph labels ({labelRange})
+              </span>
+              <input
+                type="number"
+                min={4}
+                max={13}
+                className="w-24 rounded-md border border-slate-200 px-2 py-1 text-sm"
+                value={modal.paragraphCount}
+                onChange={(e) =>
+                  onChange({
+                    ...modal,
+                    paragraphCount: Math.min(13, Math.max(4, Number(e.target.value) || 8)),
+                  })
+                }
+              />
+            </label>
+            <label className="mb-3 flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={modal.allowReuse}
+                onChange={(e) => onChange({ ...modal, allowReuse: e.target.checked })}
+              />
+              Allow letter reuse (NB note)
+            </label>
+          </>
+        )}
+
+        {modal.type === 'matching_headings' && (
+          <label className="mb-3 block">
+            <span className="mb-1 block text-sm font-medium text-slate-700">
+              Number of headings ({formatRomanRange(generateRomanNumerals(modal.headingCount))})
+            </span>
+            <input
+              type="number"
+              min={modal.paragraphCount + 1}
+              max={15}
+              className="w-24 rounded-md border border-slate-200 px-2 py-1 text-sm"
+              value={modal.headingCount}
+              onChange={(e) =>
+                onChange({
+                  ...modal,
+                  headingCount: Math.min(15, Math.max(modal.paragraphCount + 1, Number(e.target.value) || 9)),
+                })
+              }
             />
           </label>
         )}
@@ -632,7 +756,13 @@ function GroupEditorSection({
   onPreview,
 }: {
   section: Extract<PassageSection, { kind: 'group' }>
-  onUpdateMeta: (updates: { directions?: string; noteHeading?: string }) => void
+  onUpdateMeta: (updates: {
+    directions?: string
+    noteHeading?: string
+    paragraphLabels?: string[]
+    allowReuse?: boolean
+    headings?: string[]
+  }) => void
   onDeleteGroup: () => void
   onSaveQuestion: (q: Question, answer?: unknown) => void
   onDeleteQuestion: (id: string) => void
@@ -644,11 +774,21 @@ function GroupEditorSection({
   )
   const [directions, setDirections] = useState(section.directions)
   const [noteHeading, setNoteHeading] = useState(section.noteHeading || '')
+  const initialLabels = section.questions[0]?.config.paragraphLabels || generateParagraphLabels(8)
+  const [paragraphCount, setParagraphCount] = useState(initialLabels.length)
+  const [allowReuse, setAllowReuse] = useState(section.questions[0]?.config.allowReuse ?? false)
+  const initialHeadings = section.questions[0]?.config.headings || defaultHeadings(9)
+  const [headingsText, setHeadingsText] = useState(initialHeadings.join('\n'))
 
   useEffect(() => {
     setDirections(section.directions)
     setNoteHeading(section.noteHeading || '')
-  }, [section.groupId, section.directions, section.noteHeading])
+    const labels = section.questions[0]?.config.paragraphLabels || generateParagraphLabels(8)
+    setParagraphCount(labels.length)
+    setAllowReuse(section.questions[0]?.config.allowReuse ?? false)
+    const h = section.questions[0]?.config.headings || defaultHeadings(9)
+    setHeadingsText(h.join('\n'))
+  }, [section.groupId, section.directions, section.noteHeading, section.questions])
 
   return (
     <div className="rounded-lg border border-royal-blue/30 bg-blue-50/30 p-4">
@@ -675,6 +815,58 @@ function GroupEditorSection({
               onChange={(e) => setNoteHeading(e.target.value)}
               onBlur={() => {
                 if (noteHeading !== (section.noteHeading || '')) onUpdateMeta({ noteHeading })
+              }}
+            />
+          )}
+          {section.type === 'matching_information' && (
+            <div className="mb-2 flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <span>Paragraphs ({formatParagraphLabelRange(generateParagraphLabels(paragraphCount))})</span>
+                <input
+                  type="number"
+                  min={4}
+                  max={13}
+                  className="w-16 rounded-md border border-slate-200 px-2 py-1 text-sm"
+                  value={paragraphCount}
+                  onChange={(e) => {
+                    const count = Math.min(13, Math.max(4, Number(e.target.value) || 8))
+                    setParagraphCount(count)
+                  }}
+                  onBlur={() => {
+                    const labels = generateParagraphLabels(paragraphCount)
+                    const current = section.questions[0]?.config.paragraphLabels || []
+                    if (labels.join() !== current.join()) {
+                      onUpdateMeta({ paragraphLabels: labels })
+                    }
+                  }}
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={allowReuse}
+                  onChange={(e) => {
+                    setAllowReuse(e.target.checked)
+                    onUpdateMeta({ allowReuse: e.target.checked })
+                  }}
+                />
+                Allow letter reuse (NB)
+              </label>
+            </div>
+          )}
+          {section.type === 'matching_headings' && (
+            <textarea
+              className="mb-2 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
+              rows={5}
+              placeholder="Headings (one per line)"
+              value={headingsText}
+              onChange={(e) => setHeadingsText(e.target.value)}
+              onBlur={() => {
+                const next = headingsText.split('\n').map((s) => s.trim()).filter(Boolean)
+                const current = section.questions[0]?.config.headings || []
+                if (next.join('\n') !== current.join('\n')) {
+                  onUpdateMeta({ headings: next })
+                }
               }}
             />
           )}
@@ -775,32 +967,6 @@ function QuestionEditor({
             })
           }
         />
-      )}
-
-      {local.type === 'matching' && (
-        <div className="mb-3 grid grid-cols-2 gap-2">
-          <textarea
-            className="rounded-md border border-slate-200 p-2 text-sm"
-            rows={3}
-            placeholder="Items (one per line)"
-            value={(local.config.items || []).join('\n')}
-            onChange={(e) =>
-              setLocal({ ...local, config: { ...local.config, items: e.target.value.split('\n').filter(Boolean) } })
-            }
-          />
-          <textarea
-            className="rounded-md border border-slate-200 p-2 text-sm"
-            rows={3}
-            placeholder="Match options (one per line)"
-            value={(local.config.matchOptions || []).join('\n')}
-            onChange={(e) =>
-              setLocal({
-                ...local,
-                config: { ...local.config, matchOptions: e.target.value.split('\n').filter(Boolean) },
-              })
-            }
-          />
-        </div>
       )}
 
       <AnswerKeyInput
