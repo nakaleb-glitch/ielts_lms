@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { groupQuestionsInPassage, organizePassageSections, formatQuestionRange } from '../../lib/questionGroups'
@@ -29,6 +29,23 @@ import type { McOptionCount, Passage, Question, QuestionType, Test } from '../..
 
 type PassageWithQuestions = Passage & { questions: (Question & { answer?: { acceptable_answers: unknown } })[] }
 
+type SaveNotice = { type: 'success' | 'error'; message: string }
+
+function SaveNoticeBanner({ notice }: { notice: SaveNotice | null }) {
+  if (!notice) return null
+  return (
+    <p
+      className={
+        notice.type === 'success'
+          ? 'mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800'
+          : 'mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800'
+      }
+    >
+      {notice.message}
+    </p>
+  )
+}
+
 export function TestBuilder() {
   const { testId } = useParams<{ testId: string }>()
   const [test, setTest] = useState<Test | null>(null)
@@ -50,6 +67,25 @@ export function TestBuilder() {
   } | null>(null)
   const [groupError, setGroupError] = useState<string | null>(null)
   const [statusActionError, setStatusActionError] = useState<string | null>(null)
+  const [saveNotice, setSaveNotice] = useState<SaveNotice | null>(null)
+  const saveNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showSaveSuccess = useCallback((message: string) => {
+    if (saveNoticeTimer.current) clearTimeout(saveNoticeTimer.current)
+    setSaveNotice({ type: 'success', message })
+    saveNoticeTimer.current = setTimeout(() => setSaveNotice(null), 3000)
+  }, [])
+
+  const showSaveError = useCallback((message: string) => {
+    if (saveNoticeTimer.current) clearTimeout(saveNoticeTimer.current)
+    setSaveNotice({ type: 'error', message })
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (saveNoticeTimer.current) clearTimeout(saveNoticeTimer.current)
+    }
+  }, [])
 
   const load = useCallback(async () => {
     if (!testId) return
@@ -100,16 +136,26 @@ export function TestBuilder() {
   const saveTestMeta = async (updates: Partial<Test>) => {
     if (!testId) return
     setSaving(true)
-    await supabase.from('tests').update(updates).eq('id', testId)
-    setTest((t) => (t ? { ...t, ...updates } : t))
+    const { error } = await supabase.from('tests').update(updates).eq('id', testId)
     setSaving(false)
+    if (error) {
+      showSaveError(`Save failed: ${error.message}`)
+      return
+    }
+    setTest((t) => (t ? { ...t, ...updates } : t))
+    showSaveSuccess('Test settings saved.')
   }
 
   const savePassage = async (passage: Passage) => {
-    await supabase.from('passages').update({
+    const { error } = await supabase.from('passages').update({
       title: passage.title,
       body: passage.body,
     }).eq('id', passage.id)
+    if (error) {
+      showSaveError(`Save failed: ${error.message}`)
+      return
+    }
+    showSaveSuccess('Passage saved.')
   }
 
   const addPassage = async () => {
@@ -239,10 +285,15 @@ export function TestBuilder() {
           : {}),
       }
 
-      await supabase
+      const { error } = await supabase
         .from('questions')
         .update({ config: nextConfig })
         .eq('id', q.id)
+
+      if (error) {
+        showSaveError(`Save failed: ${error.message}`)
+        return
+      }
 
       if (updates.optionCount !== undefined) {
         const newOptions = nextConfig.options || []
@@ -250,17 +301,22 @@ export function TestBuilder() {
           ? String(q.answer.acceptable_answers[0] ?? '')
           : ''
         if (currentAnswer && !newOptions.includes(currentAnswer)) {
-          await supabase.from('question_answers').upsert(
+          const { error: answerError } = await supabase.from('question_answers').upsert(
             {
               question_id: q.id,
               acceptable_answers: newOptions.length ? [newOptions[0]] : [],
             },
             { onConflict: 'question_id' }
           )
+          if (answerError) {
+            showSaveError(`Save failed: ${answerError.message}`)
+            return
+          }
         }
       }
     }
     await load()
+    showSaveSuccess('Group changes saved.')
   }
 
   const deleteGroup = async (groupId: string) => {
@@ -300,19 +356,29 @@ export function TestBuilder() {
   }
 
   const updateQuestion = async (q: Question, answer?: unknown) => {
-    await supabase.from('questions').update({
+    const { error: questionError } = await supabase.from('questions').update({
       prompt: q.prompt,
       type: q.type,
       config: q.config,
     }).eq('id', q.id)
 
+    if (questionError) {
+      showSaveError(`Save failed: ${questionError.message}`)
+      throw new Error(questionError.message)
+    }
+
     if (answer !== undefined) {
-      await supabase.from('question_answers').upsert({
+      const { error: answerError } = await supabase.from('question_answers').upsert({
         question_id: q.id,
         acceptable_answers: answer,
       }, { onConflict: 'question_id' })
+      if (answerError) {
+        showSaveError(`Save failed: ${answerError.message}`)
+        throw new Error(answerError.message)
+      }
     }
     await load()
+    showSaveSuccess('Question saved.')
   }
 
   const deleteQuestion = async (id: string) => {
@@ -454,6 +520,8 @@ export function TestBuilder() {
           </p>
         )}
 
+        <SaveNoticeBanner notice={saveNotice} />
+
         <div className="mb-4 rounded-lg border border-royal-yellow/50 bg-yellow-50 px-4 py-3 text-sm text-slate-700">
           Full {test.module} test builder coming soon. You can edit basic test settings below.
         </div>
@@ -497,7 +565,9 @@ export function TestBuilder() {
               Leave blank for no password. Students must enter this before starting the exam.
             </span>
           </label>
-          <p className="mt-2 text-xs text-slate-500">{saving ? 'Saving...' : `Status: ${test.status}`}</p>
+          <p className="mt-2 text-xs text-slate-500">
+            {saving ? 'Saving…' : `Status: ${test.status}`}
+          </p>
         </div>
       </div>
     )
@@ -543,6 +613,8 @@ export function TestBuilder() {
         </p>
       )}
 
+      <SaveNoticeBanner notice={saveNotice} />
+
       <div className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
         <input
           className="mb-2 w-full text-xl font-bold outline-none"
@@ -569,7 +641,9 @@ export function TestBuilder() {
               onBlur={() => saveTestMeta({ duration_minutes: test.duration_minutes })}
             />
           </label>
-          <span className="text-slate-500">{saving ? 'Saving...' : `Status: ${test.status}`}</span>
+          <span className="text-slate-500">
+            {saving ? 'Saving…' : `Status: ${test.status}`}
+          </span>
         </div>
         <label className="mt-3 block text-sm">
           <span className="font-medium text-slate-700">Exam access password</span>
@@ -1011,7 +1085,7 @@ function GroupEditorSection({
     optionCount?: McOptionCount
   }) => void
   onDeleteGroup: () => void
-  onSaveQuestion: (q: Question, answer?: unknown) => void
+  onSaveQuestion: (q: Question, answer?: unknown) => Promise<void>
   onDeleteQuestion: (id: string) => void
   onPreview: (id: string) => void
 }) {
@@ -1268,7 +1342,7 @@ function QuestionEditor({
   compact,
 }: {
   question: Question & { answer?: { acceptable_answers: unknown } }
-  onSave: (q: Question, answer?: unknown) => void
+  onSave: (q: Question, answer?: unknown) => Promise<void>
   onDelete: () => void
   onPreview: () => void
   compact?: boolean
@@ -1277,15 +1351,34 @@ function QuestionEditor({
   const [answer, setAnswer] = useState<unknown>(
     question.answer?.acceptable_answers ?? defaultAnswer(question.type)
   )
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setLocal(question)
     setAnswer(question.answer?.acceptable_answers ?? defaultAnswer(question.type))
   }, [question.id])
 
-  const save = () => {
-    onSave(local, answer)
+  useEffect(() => {
+    return () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current)
+    }
+  }, [])
+
+  const save = async () => {
+    setSaveState('saving')
+    try {
+      await onSave(local, answer)
+      setSaveState('saved')
+      if (savedTimer.current) clearTimeout(savedTimer.current)
+      savedTimer.current = setTimeout(() => setSaveState('idle'), 2000)
+    } catch {
+      setSaveState('idle')
+    }
   }
+
+  const saveButtonLabel =
+    saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved!' : 'Save question'
 
   return (
     <div className={`rounded-lg border border-slate-200 bg-white p-4 ${compact ? 'shadow-sm' : ''}`}>
@@ -1338,9 +1431,12 @@ function QuestionEditor({
       <button
         type="button"
         onClick={save}
-        className="mt-3 rounded-md bg-royal-blue px-3 py-1.5 text-sm text-white hover:opacity-90"
+        disabled={saveState === 'saving'}
+        className={`mt-3 rounded-md px-3 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-60 ${
+          saveState === 'saved' ? 'bg-green-600' : 'bg-royal-blue'
+        }`}
       >
-        Save question
+        {saveButtonLabel}
       </button>
     </div>
   )
