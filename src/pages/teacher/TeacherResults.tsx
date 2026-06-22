@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { QuestionBreakdownPanel } from '../../components/results/QuestionBreakdownPanel'
 import { supabase } from '../../lib/supabase'
+import type { QuestionBreakdownItem } from '../../types/assessment'
 
 interface ResultRow {
   session_id: string
@@ -11,13 +13,21 @@ interface ResultRow {
   total_questions: number
   band_score: number
   submitted_at: string | null
+  question_breakdown: QuestionBreakdownItem[]
+}
+
+interface SessionResultData {
+  raw_score: number
+  total_questions: number
+  band_score: number
+  question_breakdown?: QuestionBreakdownItem[]
 }
 
 interface SessionWithResult {
   id: string
   submitted_at: string | null
   status: string
-  result?: { raw_score: number; total_questions: number; band_score: number } | { raw_score: number; total_questions: number; band_score: number }[] | null
+  result?: SessionResultData | SessionResultData[] | null
 }
 
 export function TeacherResults() {
@@ -27,6 +37,7 @@ export function TeacherResults() {
   const [testTitle, setTestTitle] = useState('')
   const [className, setClassName] = useState('')
   const [rows, setRows] = useState<ResultRow[]>([])
+  const [selectedRow, setSelectedRow] = useState<ResultRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -66,7 +77,7 @@ export function TeacherResults() {
           id,
           submitted_at,
           status,
-          result:session_results(raw_score, total_questions, band_score)
+          result:session_results(raw_score, total_questions, band_score, question_breakdown)
         )
       `)
       .eq('test_id', testId)
@@ -96,6 +107,7 @@ export function TeacherResults() {
           total_questions: result?.total_questions ?? 0,
           band_score: result?.band_score ?? 0,
           submitted_at: session?.submitted_at || null,
+          question_breakdown: result?.question_breakdown ?? [],
         }
       })
 
@@ -137,6 +149,7 @@ export function TeacherResults() {
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Score</th>
               <th className="px-4 py-3">Band</th>
+              <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
@@ -159,10 +172,47 @@ export function TeacherResults() {
                 <td className="px-4 py-3 font-semibold">
                   {r.submitted_at ? r.band_score : '—'}
                 </td>
+                <td className="px-4 py-3 text-right">
+                  {r.submitted_at && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRow(r)}
+                      className="text-royal-blue hover:underline"
+                    >
+                      View breakdown
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+      )}
+
+      {selectedRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-white shadow-xl">
+            <div className="border-b border-slate-200 px-6 py-4">
+              <h3 className="text-lg font-semibold text-slate-900">{selectedRow.student_name}</h3>
+              <p className="text-sm text-slate-500">{selectedRow.student_id || '—'}</p>
+              <p className="mt-2 text-sm text-slate-700">
+                Score: {selectedRow.raw_score} / {selectedRow.total_questions} · Band: {selectedRow.band_score}
+              </p>
+            </div>
+            <div className="overflow-y-auto px-6 py-4">
+              <QuestionBreakdownPanel items={selectedRow.question_breakdown} />
+            </div>
+            <div className="flex justify-end border-t border-slate-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setSelectedRow(null)}
+                className="rounded-md border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

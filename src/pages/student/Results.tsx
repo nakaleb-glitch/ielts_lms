@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { QuestionBreakdownPanel } from '../../components/results/QuestionBreakdownPanel'
 import { supabase } from '../../lib/supabase'
 import type { SessionResult } from '../../types/assessment'
 
@@ -68,18 +69,7 @@ export function StudentResults() {
       </div>
 
       <h2 className="mb-3 font-semibold">Question breakdown</h2>
-      <div className="space-y-2">
-        {(result.question_breakdown || []).map((item) => (
-          <div
-            key={item.question_id}
-            className={`rounded-md border px-4 py-2 text-sm ${
-              item.correct ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
-            }`}
-          >
-            Question {item.global_order}: {item.correct ? 'Correct' : 'Incorrect'}
-          </div>
-        ))}
-      </div>
+      <QuestionBreakdownPanel items={result.question_breakdown || []} />
     </div>
   )
 }
