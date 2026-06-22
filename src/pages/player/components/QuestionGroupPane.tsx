@@ -20,6 +20,23 @@ function tfngOptions(type: QuestionWithAnswer['type']) {
   return type === 'yes_no_not_given' ? ['YES', 'NO', 'NOT GIVEN'] : ['TRUE', 'FALSE', 'NOT GIVEN']
 }
 
+function ChooseTitleDirections({ directions, boxNumber }: { directions: string; boxNumber: number }) {
+  const line1 = directions.split('\n')[0].trim()
+  const isDefault = !line1 || line1 === 'Choose the correct letter, A, B or C.'
+  return (
+    <div className="mb-3 space-y-1 text-sm leading-relaxed text-slate-700">
+      {isDefault ? (
+        <p>
+          Choose the correct letter, <strong>A</strong>, <strong>B</strong> or <strong>C</strong>.
+        </p>
+      ) : (
+        <p>{line1}</p>
+      )}
+      <p>Write the correct letter in box {boxNumber} of your answer sheet.</p>
+    </div>
+  )
+}
+
 function GroupBlock({
   group,
   responses,
@@ -42,6 +59,7 @@ function GroupBlock({
   const isSummaryCompletion = group.type === 'summary_completion'
   const isMatchingInfo = group.type === 'matching_information'
   const isMatchingHeadings = group.type === 'matching_headings'
+  const isChooseTitle = group.type === 'choose_a_title'
   const options = tfngOptions(group.type)
   const paragraphLabels = group.questions[0]?.config.paragraphLabels || ['A', 'B', 'C', 'D']
   const allowReuse = group.questions[0]?.config.allowReuse ?? false
@@ -61,8 +79,12 @@ function GroupBlock({
         Questions {range}
         <span className="ml-2 font-normal text-slate-500">({QUESTION_TYPE_LABELS[group.type]})</span>
       </h3>
-      {group.directions && (
-        <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{group.directions}</p>
+      {isChooseTitle ? (
+        <ChooseTitleDirections directions={group.directions} boxNumber={group.rangeStart} />
+      ) : (
+        group.directions && (
+          <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{group.directions}</p>
+        )
       )}
       {group.noteHeading && (
         <p className="mb-3 text-sm font-semibold text-slate-800">{group.noteHeading}</p>
@@ -302,6 +324,42 @@ function GroupBlock({
                     {flags?.get(q.id) ? '★' : '☆'}
                   </button>
                 )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {group.type === 'choose_a_title' && (
+        <div className="space-y-4">
+          {group.questions.map((q) => {
+            const active = q.id === activeQuestionId
+            return (
+              <div
+                key={q.id}
+                id={`question-${q.id}`}
+                className={`rounded border border-slate-100 p-3 ${active ? 'border-royal-blue bg-blue-50/40' : ''}`}
+              >
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <p className="text-[12pt] font-medium text-slate-900">{q.prompt}</p>
+                  {!readOnly && onToggleFlag && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleFlag(q.id)}
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${
+                        flags?.get(q.id) ? 'bg-amber-100 text-amber-800' : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      {flags?.get(q.id) ? '★' : '☆'}
+                    </button>
+                  )}
+                </div>
+                <QuestionInput
+                  question={q}
+                  value={responses.get(q.id) ?? null}
+                  onChange={(v) => onChange(q.id, v)}
+                  disabled={readOnly}
+                />
               </div>
             )
           })}

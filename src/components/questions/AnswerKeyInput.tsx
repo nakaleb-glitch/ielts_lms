@@ -150,6 +150,30 @@ export function AnswerKeyInput({ type, config, value, onChange }: AnswerKeyInput
       )
     }
 
+    case 'choose_a_title': {
+      const options = config.options || []
+      const labels = generateParagraphLabels(options.length)
+      const selected = Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '')
+      return (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-slate-500">Correct letter</p>
+          <div className="flex flex-wrap gap-2">
+            {labels.map((label, i) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => onChange([label])}
+                className={`rounded-md border px-3 py-1.5 text-sm ${toggleClass(selected === label)}`}
+                title={options[i]}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
     default:
       return null
   }

@@ -147,6 +147,38 @@ export function QuestionInput({ question, value, onChange, disabled }: QuestionI
       )
     }
 
+    case 'choose_a_title': {
+      const options = question.config.options || []
+      const labels = generateParagraphLabels(options.length)
+      const selected = typeof value === 'string' ? value : ''
+      return (
+        <div className="space-y-2 pl-6">
+          {options.map((title, i) => {
+            const label = labels[i]
+            return (
+              <label
+                key={label}
+                className={`flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-[12pt] ${
+                  selected === label ? 'bg-blue-50 font-medium text-slate-900' : 'text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name={question.id}
+                  checked={selected === label}
+                  disabled={disabled}
+                  onChange={() => onChange(label)}
+                  className="sr-only"
+                />
+                <span className="font-bold">{label}</span>
+                <span>{title}</span>
+              </label>
+            )
+          })}
+        </div>
+      )
+    }
+
     default:
       return null
   }

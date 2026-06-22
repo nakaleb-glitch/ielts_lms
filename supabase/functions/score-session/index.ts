@@ -13,6 +13,7 @@ type QuestionType =
   | 'summary_completion'
   | 'matching_information'
   | 'matching_headings'
+  | 'choose_a_title'
 
 const ACADEMIC_BAND_TABLE: Record<number, number> = {
   40: 9, 39: 9, 38: 8.5, 37: 8.5, 36: 8, 35: 8, 34: 7.5, 33: 7.5,
@@ -65,7 +66,8 @@ function scoreQuestion(type: QuestionType, studentValue: unknown, acceptableAnsw
     }
     case 'summary_completion':
     case 'matching_information':
-    case 'matching_headings': {
+    case 'matching_headings':
+    case 'choose_a_title': {
       const expected = Array.isArray(acceptableAnswers) ? acceptableAnswers[0] : acceptableAnswers
       return normalizeText(String(studentValue)) === normalizeText(String(expected))
     }

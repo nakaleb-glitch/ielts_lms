@@ -7,6 +7,7 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   summary_completion: 'Summary Completion',
   matching_information: 'Matching Information',
   matching_headings: 'Matching Headings',
+  choose_a_title: 'Choose a Title',
 }
 
 const ROMAN_NUMERALS = [
@@ -72,6 +73,16 @@ export function mcDirections(count: McOptionCount): string {
     : 'Choose the correct letter, A, B, C or D.'
 }
 
+export function defaultTitleOptions(): string[] {
+  return [
+    'Coffee: A Popular Drink',
+    'Coffee: The Main Consumers',
+    'Coffee: The Main Producers',
+  ]
+}
+
+export const CHOOSE_TITLE_PROMPT = 'What is the best title for the reading passage above?'
+
 export function defaultConfig(type: QuestionType, mcOptionCount: McOptionCount = 4) {
   switch (type) {
     case 'multiple_choice':
@@ -85,6 +96,8 @@ export function defaultConfig(type: QuestionType, mcOptionCount: McOptionCount =
         paragraphLabels: generateParagraphLabels(4),
         headings: defaultHeadings(9),
       }
+    case 'choose_a_title':
+      return { options: defaultTitleOptions() }
     default:
       return {}
   }
@@ -102,6 +115,7 @@ export const DEFAULT_DIRECTIONS: Record<QuestionType, string> = {
     'Reading Passage has eight paragraphs labelled A–H.\n\nWhich paragraph contains the following information?\n\nWrite the correct letter, A–H, in boxes on your answer sheet.',
   matching_headings:
     'Choose the correct heading (I–IX) for paragraphs A, B, C and D in the passage below.',
+  choose_a_title: 'Choose the correct letter, A, B or C.',
 }
 
 export function defaultPrompt(
@@ -120,6 +134,8 @@ export function defaultPrompt(
       return `Blank ${index}`
     case 'multiple_choice':
       return `Question ${index}`
+    case 'choose_a_title':
+      return CHOOSE_TITLE_PROMPT
     default:
       return `Item ${index}`
   }
@@ -138,6 +154,8 @@ export function defaultAnswer(type: QuestionType): unknown {
     case 'matching_information':
     case 'matching_headings':
       return ['I']
+    case 'choose_a_title':
+      return ['A']
     default:
       return []
   }

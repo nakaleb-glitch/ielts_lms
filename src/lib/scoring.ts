@@ -56,7 +56,8 @@ export function scoreQuestion(
     }
     case 'summary_completion':
     case 'matching_information':
-    case 'matching_headings': {
+    case 'matching_headings':
+    case 'choose_a_title': {
       const expected = Array.isArray(acceptableAnswers) ? acceptableAnswers[0] : acceptableAnswers
       return normalizeText(String(studentValue)) === normalizeText(String(expected))
     }

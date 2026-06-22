@@ -13,6 +13,7 @@ export type QuestionType =
   | 'summary_completion'
   | 'matching_information'
   | 'matching_headings'
+  | 'choose_a_title'
 
 export interface Profile {
   id: string

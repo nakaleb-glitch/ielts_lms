@@ -22,6 +22,7 @@ import {
   generateParagraphLabels,
   generateRomanNumerals,
   QUESTION_TYPE_LABELS,
+  defaultTitleOptions,
 } from '../../components/questions/questionDefaults'
 import { countSummaryBlanks } from '../../lib/summaryCompletion'
 import type { McOptionCount, Passage, Question, QuestionType, Test } from '../../types/assessment'
@@ -210,6 +211,7 @@ export function TestBuilder() {
       headings?: string[]
       summaryText?: string
       wordBank?: string[]
+      options?: string[]
       optionCount?: McOptionCount
     }
   ) => {
@@ -227,6 +229,7 @@ export function TestBuilder() {
         ...(updates.headings !== undefined ? { headings: updates.headings } : {}),
         ...(updates.summaryText !== undefined ? { summaryText: updates.summaryText } : {}),
         ...(updates.wordBank !== undefined ? { wordBank: updates.wordBank } : {}),
+        ...(updates.options !== undefined ? { options: updates.options } : {}),
         ...(updates.optionCount !== undefined
           ? {
               optionCount: updates.optionCount,
@@ -277,7 +280,15 @@ export function TestBuilder() {
       type,
       directions: DEFAULT_DIRECTIONS[type],
       count:
-        type === 'summary_completion' ? 6 : type === 'matching_information' ? 6 : type === 'matching_headings' ? 4 : 6,
+        type === 'choose_a_title'
+          ? 1
+          : type === 'summary_completion'
+            ? 6
+            : type === 'matching_information'
+              ? 6
+              : type === 'matching_headings'
+                ? 4
+                : 6,
       noteHeading: '',
       wordBankCount: 10,
       paragraphCount,
@@ -708,12 +719,18 @@ function GroupModal({
           <span className="mb-1 block text-sm font-medium text-slate-700">Directions</span>
           <textarea
             className="w-full rounded-md border border-slate-200 p-2 text-sm"
-            rows={4}
+            rows={modal.type === 'choose_a_title' ? 2 : 4}
             value={modal.directions}
             onChange={(e) => onChange({ ...modal, directions: e.target.value })}
           />
+          {modal.type === 'choose_a_title' && (
+            <p className="mt-1 text-xs text-slate-500">
+              The answer sheet box number is added automatically from the question number.
+            </p>
+          )}
         </label>
 
+        {modal.type !== 'choose_a_title' && (
         <label className="mb-3 block">
           <span className="mb-1 block text-sm font-medium text-slate-700">
             {modal.type === 'matching_headings'
@@ -738,6 +755,11 @@ function GroupModal({
             }}
           />
         </label>
+        )}
+
+        {modal.type === 'choose_a_title' && (
+          <p className="mb-3 text-sm text-slate-600">One question per group.</p>
+        )}
 
         {modal.type === 'multiple_choice' && (
           <label className="mb-3 block">
@@ -883,6 +905,7 @@ function GroupEditorSection({
     headings?: string[]
     summaryText?: string
     wordBank?: string[]
+    options?: string[]
     optionCount?: McOptionCount
   }) => void
   onDeleteGroup: () => void
@@ -907,6 +930,8 @@ function GroupEditorSection({
   const [headingsText, setHeadingsText] = useState(initialHeadings.join('\n'))
   const initialOptionCount = (section.questions[0]?.config.optionCount ?? 4) as McOptionCount
   const [optionCount, setOptionCount] = useState<McOptionCount>(initialOptionCount)
+  const initialTitleOptions = section.questions[0]?.config.options || defaultTitleOptions()
+  const [titleOptions, setTitleOptions] = useState<string[]>(initialTitleOptions)
 
   useEffect(() => {
     setDirections(section.directions)
@@ -920,6 +945,7 @@ function GroupEditorSection({
     const h = section.questions[0]?.config.headings || defaultHeadings(9)
     setHeadingsText(h.join('\n'))
     setOptionCount((section.questions[0]?.config.optionCount ?? 4) as McOptionCount)
+    setTitleOptions(section.questions[0]?.config.options || defaultTitleOptions())
   }, [section.groupId, section.directions, section.noteHeading, section.questions])
 
   return (
@@ -1073,6 +1099,42 @@ function GroupEditorSection({
                 ))}
               </div>
             </div>
+          )}
+          {section.type === 'choose_a_title' && (
+            <>
+              <p className="mb-1 text-xs font-medium text-slate-600">Title options</p>
+              <div
+                className="mb-2 space-y-1.5 rounded-md border border-slate-200 bg-white p-2"
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                    const current = section.questions[0]?.config.options || []
+                    if (titleOptions.join('\0') !== current.join('\0')) {
+                      onUpdateMeta({ options: titleOptions })
+                    }
+                  }
+                }}
+              >
+                {titleOptions.map((title, i) => {
+                  const label = generateParagraphLabels(titleOptions.length)[i]
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="w-6 shrink-0 text-sm font-bold text-slate-700">{label}</span>
+                      <input
+                        type="text"
+                        className="flex-1 rounded-md border border-slate-200 px-2 py-1 text-sm"
+                        placeholder={`Title for ${label}`}
+                        value={title}
+                        onChange={(e) => {
+                          const next = [...titleOptions]
+                          next[i] = e.target.value
+                          setTitleOptions(next)
+                        }}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
         <button type="button" onClick={onDeleteGroup} className="shrink-0 text-xs text-red-600 hover:underline">
