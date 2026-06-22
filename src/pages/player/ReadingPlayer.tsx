@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useExamLock } from '../../hooks/useExamLock'
@@ -7,12 +7,29 @@ import type { PassageStructure } from '../../lib/questionGroups'
 import type { Passage, Question, ResponseValue, Test } from '../../types/assessment'
 import { PassagePane } from './components/PassagePane'
 import { QuestionGroupPane } from './components/QuestionGroupPane'
-import { QuestionNavBar } from './components/QuestionNavBar'
+import { QuestionNavBar, type SaveState } from './components/QuestionNavBar'
 import { OverviewModal } from './components/OverviewModal'
 import { useTimer } from './components/Timer'
 
 interface FlatQuestion extends Question {
   passage: Passage
+}
+
+function updateAggregateSaveState(
+  inFlight: number,
+  pendingTimers: number,
+  setSaveState: Dispatch<SetStateAction<SaveState>>,
+  hasError: boolean
+) {
+  if (inFlight > 0) {
+    setSaveState('saving')
+  } else if (pendingTimers > 0) {
+    setSaveState('unsaved')
+  } else if (hasError) {
+    setSaveState('error')
+  } else {
+    setSaveState('saved')
+  }
 }
 
 export function ReadingPlayer() {
@@ -30,7 +47,12 @@ export function ReadingPlayer() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [saveState, setSaveState] = useState<SaveState>('saved')
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const inFlightSaves = useRef(0)
+  const saveFailed = useRef(false)
 
   const load = useCallback(async () => {
     if (!sessionId) return
@@ -147,7 +169,11 @@ export function ReadingPlayer() {
   const persistResponse = useCallback(
     async (questionId: string, value: ResponseValue | null, flagged?: boolean) => {
       if (!sessionId || sessionStatus !== 'in_progress') return
-      await supabase.from('responses').upsert(
+
+      inFlightSaves.current += 1
+      setSaveState('saving')
+
+      const { error } = await supabase.from('responses').upsert(
         {
           session_id: sessionId,
           question_id: questionId,
@@ -157,18 +183,54 @@ export function ReadingPlayer() {
         },
         { onConflict: 'session_id,question_id' }
       )
+
+      inFlightSaves.current -= 1
+
+      if (error) {
+        saveFailed.current = true
+        setSaveError(error.message)
+        updateAggregateSaveState(
+          inFlightSaves.current,
+          saveTimers.current.size,
+          setSaveState,
+          true
+        )
+        return
+      }
+
+      saveFailed.current = false
+      setSaveError(null)
+      setLastSavedAt(new Date().toISOString())
+      updateAggregateSaveState(
+        inFlightSaves.current,
+        saveTimers.current.size,
+        setSaveState,
+        false
+      )
     },
     [sessionId, sessionStatus, flags]
   )
 
-  const debouncedSave = (questionId: string, value: ResponseValue | null) => {
-    const existing = saveTimers.current.get(questionId)
-    if (existing) clearTimeout(existing)
-    saveTimers.current.set(
-      questionId,
-      setTimeout(() => persistResponse(questionId, value), 500)
-    )
-  }
+  const debouncedSave = useCallback(
+    (questionId: string, value: ResponseValue | null) => {
+      const existing = saveTimers.current.get(questionId)
+      if (existing) clearTimeout(existing)
+      saveTimers.current.set(
+        questionId,
+        setTimeout(() => {
+          saveTimers.current.delete(questionId)
+          void persistResponse(questionId, value)
+        }, 500)
+      )
+      updateAggregateSaveState(
+        inFlightSaves.current,
+        saveTimers.current.size,
+        setSaveState,
+        saveFailed.current
+      )
+    },
+    [persistResponse]
+  )
 
   const handleChange = (questionId: string, value: ResponseValue) => {
     setResponses((prev) => {
@@ -295,6 +357,9 @@ export function ReadingPlayer() {
           setOverviewOpen(true)
         }}
         timerLabel={timerLabel}
+        saveState={saveState}
+        lastSavedAt={lastSavedAt}
+        saveError={saveError}
       />
 
       <OverviewModal

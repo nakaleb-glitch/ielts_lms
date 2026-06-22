@@ -49,6 +49,7 @@ export function TestBuilder() {
     optionCount: McOptionCount
   } | null>(null)
   const [groupError, setGroupError] = useState<string | null>(null)
+  const [statusActionError, setStatusActionError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!testId) return
@@ -320,8 +321,79 @@ export function TestBuilder() {
   }
 
   const publish = async () => {
+    setStatusActionError(null)
     await recomputeGlobalOrder()
     await saveTestMeta({ status: 'published' })
+  }
+
+  const canUnpublishTest = async (id: string) => {
+    const [{ count: assignmentCount }, { count: classAssignmentCount }] = await Promise.all([
+      supabase.from('test_assignments').select('id', { count: 'exact', head: true }).eq('test_id', id),
+      supabase.from('class_test_assignments').select('id', { count: 'exact', head: true }).eq('test_id', id),
+    ])
+
+    if (assignmentCount && assignmentCount > 0) {
+      return {
+        ok: false as const,
+        message: 'Cannot unpublish: this test has student assignments.',
+      }
+    }
+
+    if (classAssignmentCount && classAssignmentCount > 0) {
+      return {
+        ok: false as const,
+        message: 'Cannot unpublish: this test is assigned to one or more classes.',
+      }
+    }
+
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('test_assignments')
+      .select('id, session:test_sessions(id, result:session_results(id))')
+      .eq('test_id', id)
+
+    if (assignmentsError) {
+      return { ok: false as const, message: assignmentsError.message }
+    }
+
+    const hasResults = (assignments || []).some((assignment) => {
+      const sessions = Array.isArray(assignment.session)
+        ? assignment.session
+        : assignment.session
+          ? [assignment.session]
+          : []
+
+      return sessions.some((session) => {
+        const result = session.result
+        if (Array.isArray(result)) return result.length > 0
+        return Boolean(result)
+      })
+    })
+
+    if (hasResults) {
+      return {
+        ok: false as const,
+        message: 'Cannot unpublish: this test has submitted results.',
+      }
+    }
+
+    return { ok: true as const }
+  }
+
+  const unpublish = async () => {
+    if (!testId) return
+    setStatusActionError(null)
+
+    const eligibility = await canUnpublishTest(testId)
+    if (!eligibility.ok) {
+      setStatusActionError(eligibility.message)
+      return
+    }
+
+    if (!confirm('Unpublish this test and return it to draft? It will no longer be available for new assignments.')) {
+      return
+    }
+
+    await saveTestMeta({ status: 'draft' })
   }
 
   const activePassage = passages.find((p) => p.id === activePassageId)
@@ -346,7 +418,7 @@ export function TestBuilder() {
           <Link to={listPath} className="text-sm text-royal-blue hover:underline">
             ← Back to {test.module} tests
           </Link>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {test.status === 'draft' && (
               <button
                 type="button"
@@ -357,15 +429,30 @@ export function TestBuilder() {
               </button>
             )}
             {test.status === 'published' && (
-              <Link
-                to={`/tests/${testId}/assign`}
-                className="rounded-md bg-royal-blue px-4 py-2 text-sm text-white hover:opacity-90"
-              >
-                Assign students
-              </Link>
+              <>
+                <button
+                  type="button"
+                  onClick={unpublish}
+                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Unpublish
+                </button>
+                <Link
+                  to={`/tests/${testId}/assign`}
+                  className="rounded-md bg-royal-blue px-4 py-2 text-sm text-white hover:opacity-90"
+                >
+                  Assign students
+                </Link>
+              </>
             )}
           </div>
         </div>
+
+        {statusActionError && (
+          <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {statusActionError}
+          </p>
+        )}
 
         <div className="mb-4 rounded-lg border border-royal-yellow/50 bg-yellow-50 px-4 py-3 text-sm text-slate-700">
           Full {test.module} test builder coming soon. You can edit basic test settings below.
@@ -420,7 +507,7 @@ export function TestBuilder() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <Link to={listPath} className="text-sm text-royal-blue hover:underline">← Back to tests</Link>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {test.status === 'draft' && (
             <button
               type="button"
@@ -431,15 +518,30 @@ export function TestBuilder() {
             </button>
           )}
           {test.status === 'published' && (
-            <Link
-              to={`/tests/${testId}/assign`}
-              className="rounded-md bg-royal-blue px-4 py-2 text-sm text-white hover:opacity-90"
-            >
-              Assign students
-            </Link>
+            <>
+              <button
+                type="button"
+                onClick={unpublish}
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Unpublish
+              </button>
+              <Link
+                to={`/tests/${testId}/assign`}
+                className="rounded-md bg-royal-blue px-4 py-2 text-sm text-white hover:opacity-90"
+              >
+                Assign students
+              </Link>
+            </>
           )}
         </div>
       </div>
+
+      {statusActionError && (
+        <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          {statusActionError}
+        </p>
+      )}
 
       <div className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
         <input

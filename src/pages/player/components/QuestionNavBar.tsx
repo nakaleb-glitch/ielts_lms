@@ -1,6 +1,8 @@
 import { isAnswered } from '../../../components/questions/QuestionInput'
 import type { ResponseValue } from '../../../types/assessment'
 
+export type SaveState = 'saved' | 'unsaved' | 'saving' | 'error'
+
 export interface PartNav {
   partNumber: number
   passageId: string
@@ -19,6 +21,59 @@ interface QuestionNavBarProps {
   onSelectQuestion: (questionId: string) => void
   onOverview: () => void
   timerLabel: string
+  saveState: SaveState
+  lastSavedAt: string | null
+  saveError: string | null
+}
+
+function formatSavedLabel(lastSavedAt: string): string {
+  const savedAt = new Date(lastSavedAt)
+  const secondsAgo = (Date.now() - savedAt.getTime()) / 1000
+  if (secondsAgo < 15) return 'Saved just now'
+  return `Saved at ${savedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+}
+
+function SaveStatusBadge({
+  saveState,
+  lastSavedAt,
+  saveError,
+}: {
+  saveState: SaveState
+  lastSavedAt: string | null
+  saveError: string | null
+}) {
+  if (saveState === 'unsaved') {
+    return (
+      <span className="whitespace-nowrap rounded bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900">
+        Unsaved changes
+      </span>
+    )
+  }
+
+  if (saveState === 'saving') {
+    return (
+      <span className="whitespace-nowrap rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+        Saving…
+      </span>
+    )
+  }
+
+  if (saveState === 'error') {
+    return (
+      <span
+        className="max-w-[12rem] truncate whitespace-nowrap rounded bg-red-100 px-2.5 py-1 text-xs font-medium text-red-800"
+        title={saveError || 'Save failed'}
+      >
+        Save failed
+      </span>
+    )
+  }
+
+  return (
+    <span className="whitespace-nowrap rounded bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+      {lastSavedAt ? formatSavedLabel(lastSavedAt) : 'Saved'}
+    </span>
+  )
 }
 
 export function QuestionNavBar({
@@ -31,6 +86,9 @@ export function QuestionNavBar({
   onSelectQuestion,
   onOverview,
   timerLabel,
+  saveState,
+  lastSavedAt,
+  saveError,
 }: QuestionNavBarProps) {
   return (
     <div className="flex items-center gap-3 border-t border-slate-300 bg-white px-3 py-2">
@@ -87,6 +145,8 @@ export function QuestionNavBar({
           )
         })}
       </div>
+
+      <SaveStatusBadge saveState={saveState} lastSavedAt={lastSavedAt} saveError={saveError} />
 
       <span className="whitespace-nowrap rounded bg-slate-800 px-3 py-1 font-mono text-sm text-white">
         {timerLabel}
