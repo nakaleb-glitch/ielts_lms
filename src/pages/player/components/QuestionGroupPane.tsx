@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import type { QuestionGroup, QuestionWithAnswer } from '../../../lib/questionGroups'
 import { formatQuestionRange } from '../../../lib/questionGroups'
-import { QUESTION_TYPE_LABELS, generateRomanNumerals } from '../../../components/questions/questionDefaults'
+import { QUESTION_TYPE_LABELS, generateParagraphLabels, generateRomanNumerals } from '../../../components/questions/questionDefaults'
+import { parseSummaryTemplate } from '../../../lib/summaryCompletion'
 import { QuestionInput } from '../../../components/questions/QuestionInput'
 import type { ResponseValue } from '../../../types/assessment'
 
@@ -38,12 +39,19 @@ function GroupBlock({
 }) {
   const range = formatQuestionRange(group.rangeStart, group.rangeEnd)
   const isTfng = group.type === 'true_false_not_given' || group.type === 'yes_no_not_given'
-  const isGapFill = group.type === 'gap_fill'
+  const isSummaryCompletion = group.type === 'summary_completion'
   const isMatchingInfo = group.type === 'matching_information'
   const isMatchingHeadings = group.type === 'matching_headings'
   const options = tfngOptions(group.type)
   const paragraphLabels = group.questions[0]?.config.paragraphLabels || ['A', 'B', 'C', 'D']
   const allowReuse = group.questions[0]?.config.allowReuse ?? false
+  const wordBank = group.questions[0]?.config.wordBank || []
+  const wordBankLabels = generateParagraphLabels(wordBank.length)
+  const summaryText = group.questions[0]?.config.summaryText || ''
+  const summarySegments = parseSummaryTemplate(summaryText)
+  const questionByBlankIndex = new Map(
+    group.questions.map((q, i) => [i + 1, q])
+  )
   const headings = group.questions[0]?.config.headings || []
   const headingNumerals = generateRomanNumerals(headings.length)
 
@@ -123,38 +131,55 @@ function GroupBlock({
         </div>
       )}
 
-      {isGapFill && (
-        <ul className="list-none space-y-2 pl-0">
-          {group.questions.map((q) => {
+      {isSummaryCompletion && summaryText && (
+        <p className="mb-4 text-sm leading-relaxed text-slate-900">
+          {summarySegments.map((segment, i) => {
+            if (segment.kind === 'text') {
+              return <span key={i}>{segment.value}</span>
+            }
+            const q = questionByBlankIndex.get(segment.index)
+            if (!q) return <span key={i}>{`{{${segment.index}}}`}</span>
             const active = q.id === activeQuestionId
             const value = responses.get(q.id) ?? null
-            const arr = Array.isArray(value) ? value : [value ?? '']
-            const text = String(arr[0] ?? '')
+            const selected = typeof value === 'string' ? value : ''
             return (
-              <li
-                key={q.id}
+              <span
+                key={i}
                 id={`question-${q.id}`}
-                className={`flex flex-wrap items-center gap-2 text-sm leading-relaxed ${
-                  active ? 'bg-blue-50/60 -mx-2 px-2 py-1 rounded' : ''
-                }`}
+                className={`inline-flex items-baseline gap-0.5 ${active ? 'rounded bg-blue-50/60 px-0.5' : ''}`}
               >
-                <span className="text-slate-600">•</span>
-                <span className="text-slate-900">{q.prompt}</span>
-                <input
-                  type="text"
+                <span className="font-bold">{segment.index}</span>
+                <select
+                  className="mx-0.5 inline-block w-12 border-b-2 border-dotted border-slate-800 bg-transparent text-center text-sm outline-none focus:border-royal-blue"
+                  value={selected}
                   disabled={readOnly}
-                  value={text}
-                  onChange={(e) => onChange(q.id, [e.target.value])}
-                  className={`inline-block w-14 border-b-2 border-slate-800 bg-transparent text-center text-sm outline-none focus:border-royal-blue ${
-                    active ? 'bg-white' : ''
-                  }`}
+                  onChange={(e) => onChange(q.id, e.target.value)}
                   aria-label={`Answer for question ${q.global_order}`}
-                  placeholder={String(q.global_order)}
-                />
-              </li>
+                >
+                  <option value="">…</option>
+                  {wordBankLabels.map((label) => (
+                    <option key={label} value={label}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </span>
             )
           })}
-        </ul>
+        </p>
+      )}
+
+      {isSummaryCompletion && wordBank.length > 0 && (
+        <div className="mb-4 rounded border border-slate-300 bg-slate-50 p-4">
+          <div className="grid grid-cols-3 gap-x-4 gap-y-2">
+            {wordBank.map((word, i) => (
+              <div key={i} className="text-sm text-slate-900">
+                <span className="font-bold">{wordBankLabels[i]}</span>
+                <span className="ml-2">{word}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {isMatchingInfo && (

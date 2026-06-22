@@ -10,7 +10,7 @@ export type QuestionType =
   | 'multiple_choice'
   | 'true_false_not_given'
   | 'yes_no_not_given'
-  | 'gap_fill'
+  | 'summary_completion'
   | 'matching_information'
   | 'matching_headings'
 
@@ -48,7 +48,8 @@ export interface Passage {
 
 export interface QuestionConfig {
   options?: string[]
-  blanks?: string[]
+  summaryText?: string
+  wordBank?: string[]
   headings?: string[]
   paragraphLabels?: string[]
   allowReuse?: boolean

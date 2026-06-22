@@ -10,7 +10,7 @@ type QuestionType =
   | 'multiple_choice'
   | 'true_false_not_given'
   | 'yes_no_not_given'
-  | 'gap_fill'
+  | 'summary_completion'
   | 'matching_information'
   | 'matching_headings'
 
@@ -63,16 +63,7 @@ function scoreQuestion(type: QuestionType, studentValue: unknown, acceptableAnsw
       const expected = Array.isArray(acceptableAnswers) ? acceptableAnswers[0] : acceptableAnswers
       return normalizeYnng(String(studentValue)) === normalizeYnng(String(expected))
     }
-    case 'gap_fill': {
-      const studentArr = Array.isArray(studentValue) ? studentValue : [studentValue]
-      const acceptableArr = Array.isArray(acceptableAnswers) ? acceptableAnswers : [acceptableAnswers]
-      if (studentArr.length !== acceptableArr.length) return false
-      return studentArr.every((ans, i) => {
-        const options = acceptableArr[i]
-        const opts = Array.isArray(options) ? options : [options]
-        return opts.some((o) => normalizeText(String(o)) === normalizeText(String(ans ?? '')))
-      })
-    }
+    case 'summary_completion':
     case 'matching_information':
     case 'matching_headings': {
       const expected = Array.isArray(acceptableAnswers) ? acceptableAnswers[0] : acceptableAnswers
@@ -210,25 +201,8 @@ Deno.serve(async (req) => {
     let rawScore = 0
     const breakdown = questions.map((q) => {
       const studentValue = responseMap.get(q.id) ?? null
-      let correct = false
-
-      if (q.type === 'gap_fill') {
-        const blankCount = (q.config as { blanks?: string[] }).blanks?.length ?? 1
-        const studentArr = Array.isArray(studentValue) ? studentValue : [studentValue]
-        const acceptableArr = Array.isArray(q.acceptable_answers) ? q.acceptable_answers : [q.acceptable_answers]
-        let correctBlanks = 0
-        for (let i = 0; i < blankCount; i++) {
-          const opts = acceptableArr[i]
-          const options = Array.isArray(opts) ? opts : [opts]
-          const ans = normalizeText(String(studentArr[i] ?? ''))
-          if (options.some((o) => normalizeText(String(o)) === ans)) correctBlanks++
-        }
-        rawScore += correctBlanks
-        correct = correctBlanks === blankCount
-      } else {
-        correct = scoreQuestion(q.type, studentValue, q.acceptable_answers)
-        if (correct) rawScore += 1
-      }
+      const correct = scoreQuestion(q.type, studentValue, q.acceptable_answers)
+      if (correct) rawScore += 1
 
       return {
         question_id: q.id,

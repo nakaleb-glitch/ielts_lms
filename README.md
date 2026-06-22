@@ -106,7 +106,7 @@ supabase/
 - **Multiple choice:** `["Option B"]`
 - **True/False/Not Given:** `["TRUE"]`
 - **Yes/No/Not Given:** `["NOT GIVEN"]`
-- **Gap fill:** `[["food"], ["security"]]` (one array per blank, multiple acceptable answers allowed)
+- **Summary completion:** `["C"]` (letter from word bank; one answer per blank)
 - **Matching information:** `["C"]` (paragraph letter; one answer per question)
 - **Matching headings:** `["III"]` (roman numeral; one answer per paragraph)
 

@@ -13,12 +13,15 @@ import {
   defaultPrompt,
   DEFAULT_DIRECTIONS,
   defaultHeadings,
+  defaultSummaryTemplate,
+  defaultWordBank,
   formatParagraphLabelRange,
   formatRomanRange,
   generateParagraphLabels,
   generateRomanNumerals,
   QUESTION_TYPE_LABELS,
 } from '../../components/questions/questionDefaults'
+import { countSummaryBlanks } from '../../lib/summaryCompletion'
 import type { Passage, Question, QuestionType, Test } from '../../types/assessment'
 
 type PassageWithQuestions = Passage & { questions: (Question & { answer?: { acceptable_answers: unknown } })[] }
@@ -36,10 +39,12 @@ export function TestBuilder() {
     directions: string
     count: number
     noteHeading: string
+    wordBankCount: number
     paragraphCount: number
     headingCount: number
     allowReuse: boolean
   } | null>(null)
+  const [groupError, setGroupError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!testId) return
@@ -123,10 +128,11 @@ export function TestBuilder() {
     noteHeading?: string,
     paragraphLabels?: string[],
     allowReuse?: boolean,
-    headings?: string[]
-  ) => {
+    headings?: string[],
+    wordBankCount?: number
+  ): Promise<boolean> => {
     const passage = passages.find((p) => p.id === activePassageId)
-    if (!passage || count < 1) return
+    if (!passage || count < 1) return false
 
     const groupId = crypto.randomUUID()
     let globalOrder = passages.reduce((acc, p) => acc + p.questions.length, 0)
@@ -136,6 +142,11 @@ export function TestBuilder() {
       (type === 'matching_headings' ? generateParagraphLabels(4) : undefined)
     const questionCount = type === 'matching_headings' ? (labels?.length ?? count) : count
     const headingList = headings || (type === 'matching_headings' ? defaultHeadings(9) : undefined)
+    const bankCount = wordBankCount ?? 10
+    const summaryText =
+      type === 'summary_completion' ? defaultSummaryTemplate(questionCount) : undefined
+    const wordBank =
+      type === 'summary_completion' ? defaultWordBank(bankCount) : undefined
 
     for (let i = 0; i < questionCount; i++) {
       globalOrder++
@@ -148,10 +159,12 @@ export function TestBuilder() {
         ...(labels ? { paragraphLabels: labels } : {}),
         ...(allowReuse !== undefined ? { allowReuse } : {}),
         ...(headingList ? { headings: headingList } : {}),
+        ...(summaryText ? { summaryText } : {}),
+        ...(wordBank ? { wordBank } : {}),
       }
 
       const paragraphLabel = labels?.[i]
-      const { data: q } = await supabase
+      const { data: q, error: questionError } = await supabase
         .from('questions')
         .insert({
           passage_id: passage.id,
@@ -164,16 +177,26 @@ export function TestBuilder() {
         .select()
         .single()
 
-      if (q) {
-        await supabase.from('question_answers').insert({
-          question_id: q.id,
-          acceptable_answers: defaultAnswer(type),
-        })
+      if (questionError) {
+        setGroupError(questionError.message)
+        return false
+      }
+
+      const { error: answerError } = await supabase.from('question_answers').insert({
+        question_id: q.id,
+        acceptable_answers: defaultAnswer(type),
+      })
+
+      if (answerError) {
+        setGroupError(answerError.message)
+        return false
       }
     }
 
+    setGroupError(null)
     await load()
     setGroupModal(null)
+    return true
   }
 
   const updateGroupMeta = async (
@@ -184,6 +207,8 @@ export function TestBuilder() {
       paragraphLabels?: string[]
       allowReuse?: boolean
       headings?: string[]
+      summaryText?: string
+      wordBank?: string[]
     }
   ) => {
     const passage = passages.find((p) => p.id === activePassageId)
@@ -201,6 +226,8 @@ export function TestBuilder() {
             ...(updates.paragraphLabels !== undefined ? { paragraphLabels: updates.paragraphLabels } : {}),
             ...(updates.allowReuse !== undefined ? { allowReuse: updates.allowReuse } : {}),
             ...(updates.headings !== undefined ? { headings: updates.headings } : {}),
+            ...(updates.summaryText !== undefined ? { summaryText: updates.summaryText } : {}),
+            ...(updates.wordBank !== undefined ? { wordBank: updates.wordBank } : {}),
           },
         })
         .eq('id', q.id)
@@ -221,12 +248,14 @@ export function TestBuilder() {
   const openGroupModal = (type: QuestionType) => {
     const paragraphCount = type === 'matching_headings' ? 4 : 8
     const headingCount = 9
+    setGroupError(null)
     setGroupModal({
       type,
       directions: DEFAULT_DIRECTIONS[type],
       count:
-        type === 'gap_fill' ? 7 : type === 'matching_information' ? 6 : type === 'matching_headings' ? 4 : 6,
-      noteHeading: '',
+        type === 'summary_completion' ? 6 : type === 'matching_information' ? 6 : type === 'matching_headings' ? 4 : 6,
+      noteHeading: type === 'summary_completion' ? 'International Uses for Fermentation' : '',
+      wordBankCount: 10,
       paragraphCount,
       headingCount,
       allowReuse: type === 'matching_information',
@@ -576,9 +605,13 @@ export function TestBuilder() {
       {groupModal && (
         <GroupModal
           modal={groupModal}
+          error={groupError}
           onChange={setGroupModal}
-          onClose={() => setGroupModal(null)}
-          onSubmit={() => {
+          onClose={() => {
+            setGroupModal(null)
+            setGroupError(null)
+          }}
+          onSubmit={async () => {
             const labels =
               groupModal.type === 'matching_information' || groupModal.type === 'matching_headings'
                 ? generateParagraphLabels(groupModal.paragraphCount)
@@ -591,14 +624,15 @@ export function TestBuilder() {
               groupModal.type === 'matching_headings'
                 ? groupModal.paragraphCount
                 : groupModal.count
-            addQuestionGroup(
+            await addQuestionGroup(
               groupModal.type,
               groupModal.directions,
               count,
               groupModal.noteHeading || undefined,
               labels,
               groupModal.type === 'matching_information' ? groupModal.allowReuse : undefined,
-              headings
+              headings,
+              groupModal.type === 'summary_completion' ? groupModal.wordBankCount : undefined
             )
           }}
         />
@@ -609,6 +643,7 @@ export function TestBuilder() {
 
 function GroupModal({
   modal,
+  error,
   onChange,
   onClose,
   onSubmit,
@@ -618,13 +653,15 @@ function GroupModal({
     directions: string
     count: number
     noteHeading: string
+    wordBankCount: number
     paragraphCount: number
     headingCount: number
     allowReuse: boolean
   }
+  error: string | null
   onChange: (m: typeof modal) => void
   onClose: () => void
-  onSubmit: () => void
+  onSubmit: () => void | Promise<void>
 }) {
   const paragraphLabels = generateParagraphLabels(modal.paragraphCount)
   const labelRange = formatParagraphLabelRange(paragraphLabels)
@@ -633,6 +670,12 @@ function GroupModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
         <h3 className="mb-4 text-lg font-semibold">Add {QUESTION_TYPE_LABELS[modal.type]} group</h3>
+
+        {error && (
+          <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {error}
+          </p>
+        )}
 
         <label className="mb-3 block">
           <span className="mb-1 block text-sm font-medium text-slate-700">Directions</span>
@@ -646,7 +689,11 @@ function GroupModal({
 
         <label className="mb-3 block">
           <span className="mb-1 block text-sm font-medium text-slate-700">
-            {modal.type === 'matching_headings' ? 'Number of paragraphs' : 'Number of questions'}
+            {modal.type === 'matching_headings'
+              ? 'Number of paragraphs'
+              : modal.type === 'summary_completion'
+                ? 'Number of blanks'
+                : 'Number of questions'}
           </span>
           <input
             type="number"
@@ -665,17 +712,37 @@ function GroupModal({
           />
         </label>
 
-        {modal.type === 'gap_fill' && (
-          <label className="mb-3 block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Note heading (optional)</span>
-            <input
-              type="text"
-              className="w-full rounded-md border border-slate-200 px-2 py-1 text-sm"
-              placeholder="e.g. Marie Curie's research on radioactivity"
-              value={modal.noteHeading}
-              onChange={(e) => onChange({ ...modal, noteHeading: e.target.value })}
-            />
-          </label>
+        {modal.type === 'summary_completion' && (
+          <>
+            <label className="mb-3 block">
+              <span className="mb-1 block text-sm font-medium text-slate-700">Summary title</span>
+              <input
+                type="text"
+                className="w-full rounded-md border border-slate-200 px-2 py-1 text-sm"
+                placeholder="e.g. International Uses for Fermentation"
+                value={modal.noteHeading}
+                onChange={(e) => onChange({ ...modal, noteHeading: e.target.value })}
+              />
+            </label>
+            <label className="mb-3 block">
+              <span className="mb-1 block text-sm font-medium text-slate-700">
+                Word bank options ({formatParagraphLabelRange(generateParagraphLabels(modal.wordBankCount))})
+              </span>
+              <input
+                type="number"
+                min={modal.count}
+                max={26}
+                className="w-24 rounded-md border border-slate-200 px-2 py-1 text-sm"
+                value={modal.wordBankCount}
+                onChange={(e) =>
+                  onChange({
+                    ...modal,
+                    wordBankCount: Math.min(26, Math.max(modal.count, Number(e.target.value) || 10)),
+                  })
+                }
+              />
+            </label>
+          </>
         )}
 
         {modal.type === 'matching_information' && (
@@ -762,6 +829,8 @@ function GroupEditorSection({
     paragraphLabels?: string[]
     allowReuse?: boolean
     headings?: string[]
+    summaryText?: string
+    wordBank?: string[]
   }) => void
   onDeleteGroup: () => void
   onSaveQuestion: (q: Question, answer?: unknown) => void
@@ -774,6 +843,10 @@ function GroupEditorSection({
   )
   const [directions, setDirections] = useState(section.directions)
   const [noteHeading, setNoteHeading] = useState(section.noteHeading || '')
+  const initialSummaryText = section.questions[0]?.config.summaryText || ''
+  const [summaryText, setSummaryText] = useState(initialSummaryText)
+  const initialWordBank = section.questions[0]?.config.wordBank || defaultWordBank(10)
+  const [wordBankText, setWordBankText] = useState(initialWordBank.join('\n'))
   const initialLabels = section.questions[0]?.config.paragraphLabels || generateParagraphLabels(8)
   const [paragraphCount, setParagraphCount] = useState(initialLabels.length)
   const [allowReuse, setAllowReuse] = useState(section.questions[0]?.config.allowReuse ?? false)
@@ -783,6 +856,9 @@ function GroupEditorSection({
   useEffect(() => {
     setDirections(section.directions)
     setNoteHeading(section.noteHeading || '')
+    setSummaryText(section.questions[0]?.config.summaryText || '')
+    const bank = section.questions[0]?.config.wordBank || defaultWordBank(10)
+    setWordBankText(bank.join('\n'))
     const labels = section.questions[0]?.config.paragraphLabels || generateParagraphLabels(8)
     setParagraphCount(labels.length)
     setAllowReuse(section.questions[0]?.config.allowReuse ?? false)
@@ -807,16 +883,49 @@ function GroupEditorSection({
             }}
             placeholder="Directions for this group"
           />
-          {section.type === 'gap_fill' && (
-            <input
-              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
-              placeholder="Note heading (optional)"
-              value={noteHeading}
-              onChange={(e) => setNoteHeading(e.target.value)}
-              onBlur={() => {
-                if (noteHeading !== (section.noteHeading || '')) onUpdateMeta({ noteHeading })
-              }}
-            />
+          {section.type === 'summary_completion' && (
+            <>
+              <input
+                className="mb-2 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-sm font-semibold"
+                placeholder="Summary title"
+                value={noteHeading}
+                onChange={(e) => setNoteHeading(e.target.value)}
+                onBlur={() => {
+                  if (noteHeading !== (section.noteHeading || '')) onUpdateMeta({ noteHeading })
+                }}
+              />
+              <textarea
+                className="mb-2 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
+                rows={5}
+                placeholder="Summary text — use {{1}}, {{2}}, … for blanks"
+                value={summaryText}
+                onChange={(e) => setSummaryText(e.target.value)}
+                onBlur={() => {
+                  const current = section.questions[0]?.config.summaryText || ''
+                  if (summaryText !== current) onUpdateMeta({ summaryText })
+                }}
+              />
+              {countSummaryBlanks(summaryText) !== section.questions.length && (
+                <p className="mb-2 text-xs text-amber-700">
+                  Warning: {countSummaryBlanks(summaryText)} placeholder(s) found, but this group has{' '}
+                  {section.questions.length} question(s).
+                </p>
+              )}
+              <textarea
+                className="mb-2 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
+                rows={5}
+                placeholder="Word bank (one word per line)"
+                value={wordBankText}
+                onChange={(e) => setWordBankText(e.target.value)}
+                onBlur={() => {
+                  const next = wordBankText.split('\n').map((s) => s.trim()).filter(Boolean)
+                  const current = section.questions[0]?.config.wordBank || []
+                  if (next.join('\n') !== current.join('\n')) {
+                    onUpdateMeta({ wordBank: next })
+                  }
+                }}
+              />
+            </>
           )}
           {section.type === 'matching_information' && (
             <div className="mb-2 flex flex-wrap items-center gap-4">
@@ -930,12 +1039,18 @@ function QuestionEditor({
           <button type="button" onClick={onDelete} className="text-xs text-red-600">Delete</button>
         </div>
       </div>
-      <textarea
-        className="mb-3 w-full rounded-md border border-slate-200 p-2 text-sm"
-        rows={compact ? 1 : 2}
-        value={local.prompt}
-        onChange={(e) => setLocal({ ...local, prompt: e.target.value })}
-      />
+      {local.type !== 'summary_completion' && (
+        <textarea
+          className="mb-3 w-full rounded-md border border-slate-200 p-2 text-sm"
+          rows={compact ? 1 : 2}
+          value={local.prompt}
+          onChange={(e) => setLocal({ ...local, prompt: e.target.value })}
+        />
+      )}
+
+      {local.type === 'summary_completion' && (
+        <p className="mb-3 text-xs text-slate-500">{local.prompt} — set correct letter below</p>
+      )}
 
       {local.type === 'multiple_choice' && (
         <div className="mb-3 space-y-1">
@@ -953,20 +1068,6 @@ function QuestionEditor({
             />
           ))}
         </div>
-      )}
-
-      {local.type === 'gap_fill' && (
-        <input
-          className="mb-3 w-full rounded-md border border-slate-200 px-2 py-1 text-sm"
-          placeholder="Blank labels comma-separated"
-          value={(local.config.blanks || []).join(', ')}
-          onChange={(e) =>
-            setLocal({
-              ...local,
-              config: { ...local.config, blanks: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) },
-            })
-          }
-        />
       )}
 
       <AnswerKeyInput

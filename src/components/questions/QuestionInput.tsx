@@ -1,5 +1,5 @@
 import type { Question, ResponseValue } from '../../types/assessment'
-import { generateRomanNumerals } from './questionDefaults'
+import { generateParagraphLabels, generateRomanNumerals } from './questionDefaults'
 
 interface QuestionInputProps {
   question: Question
@@ -64,26 +64,29 @@ export function QuestionInput({ question, value, onChange, disabled }: QuestionI
         </div>
       )
 
-    case 'gap_fill': {
-      const blanks = question.config.blanks || ['answer']
-      const arr = Array.isArray(value) ? value : blanks.map(() => '')
+    case 'summary_completion': {
+      const bank = question.config.wordBank || []
+      const labels = generateParagraphLabels(bank.length)
+      const selected = typeof value === 'string' ? value : ''
       return (
-        <div className="space-y-3">
-          {blanks.map((label, i) => (
-            <div key={i}>
-              <label className="mb-1 block text-sm text-slate-600">{label || `Blank ${i + 1}`}</label>
+        <div className="flex flex-wrap gap-1">
+          {labels.map((label) => (
+            <label
+              key={label}
+              className={`flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs ${
+                selected === label ? 'border-royal-blue bg-blue-50 font-medium' : 'border-slate-200 bg-white'
+              }`}
+            >
               <input
-                type="text"
-                className="w-full rounded-md border border-slate-300 px-3 py-2"
-                value={arr[i] || ''}
+                type="radio"
+                name={question.id}
+                checked={selected === label}
                 disabled={disabled}
-                onChange={(e) => {
-                  const next = [...arr]
-                  next[i] = e.target.value
-                  onChange(next)
-                }}
+                onChange={() => onChange(label)}
+                className="sr-only"
               />
-            </div>
+              {label}
+            </label>
           ))}
         </div>
       )

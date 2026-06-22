@@ -1,5 +1,5 @@
 import type { Question, QuestionType } from '../../types/assessment'
-import { generateRomanNumerals } from './questionDefaults'
+import { generateParagraphLabels, generateRomanNumerals } from './questionDefaults'
 
 interface AnswerKeyInputProps {
   type: QuestionType
@@ -80,32 +80,26 @@ export function AnswerKeyInput({ type, config, value, onChange }: AnswerKeyInput
       )
     }
 
-    case 'gap_fill': {
-      const blanks = config.blanks?.length ? config.blanks : ['answer']
-      const arr = Array.isArray(value) ? value : [value]
+    case 'summary_completion': {
+      const bank = config.wordBank || []
+      const labels = generateParagraphLabels(bank.length)
+      const selected = Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '')
       return (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-slate-500">Acceptable answers</p>
-          {blanks.map((label, i) => {
-            const opts = arr[i]
-            const text = Array.isArray(opts) ? opts.join(', ') : String(opts ?? '')
-            return (
-              <div key={i}>
-                <label className="mb-1 block text-xs text-slate-600">{label || `Blank ${i + 1}`}</label>
-                <input
-                  type="text"
-                  className="w-full rounded-md border border-slate-200 px-2 py-1 text-sm"
-                  value={text}
-                  onChange={(e) => {
-                    const next = [...arr]
-                    next[i] = e.target.value.split(',').map((s) => s.trim()).filter(Boolean)
-                    onChange(next)
-                  }}
-                  placeholder="answer1, answer2"
-                />
-              </div>
-            )
-          })}
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-slate-500">Correct letter</p>
+          <div className="flex flex-wrap gap-2">
+            {labels.map((label, i) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => onChange([label])}
+                className={`rounded-md border px-3 py-1.5 text-sm ${toggleClass(selected === label)}`}
+                title={bank[i]}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       )
     }
